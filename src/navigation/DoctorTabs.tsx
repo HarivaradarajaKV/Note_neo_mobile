@@ -17,7 +17,7 @@ export const DoctorTabs: React.FC = () => {
 
   return (
     <Tab.Navigator
-      initialRouteName="Consult"
+      initialRouteName="Patients"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: '#2563EB',
@@ -40,21 +40,12 @@ export const DoctorTabs: React.FC = () => {
           fontWeight: '600',
           marginTop: 2,
         },
-        tabBarIcon: ({ focused, color }) => {
-          if (route.name === 'Consult') {
-            return (
-              <View style={[styles.consultIconWrap, focused && styles.consultIconWrapFocused]}>
-                <Ionicons
-                  name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
-                  size={20}
-                  color={focused ? '#2563EB' : '#64748B'}
-                />
-              </View>
-            );
-          }
-
+        tabBarIcon: ({ focused }) => {
           let iconName: keyof typeof Ionicons.glyphMap = 'chatbubble-ellipses';
-          if (route.name === 'Patients') {
+
+          if (route.name === 'Consult') {
+            iconName = focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline';
+          } else if (route.name === 'Patients') {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Schedule') {
             iconName = focused ? 'calendar' : 'calendar-outline';
@@ -64,7 +55,15 @@ export const DoctorTabs: React.FC = () => {
             iconName = focused ? 'settings' : 'settings-outline';
           }
 
-          return <Ionicons name={iconName} size={22} color={color} />;
+          return (
+            <View style={[styles.tabIconWrap, focused && styles.tabIconWrapFocused]}>
+              <Ionicons
+                name={iconName}
+                size={21}
+                color={focused ? '#2563EB' : '#64748B'}
+              />
+            </View>
+          );
         },
       })}
     >
@@ -98,14 +97,14 @@ export const DoctorTabs: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  consultIconWrap: {
-    width: 38,
-    height: 34,
-    borderRadius: 17,
+  tabIconWrap: {
+    width: 44,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  consultIconWrapFocused: {
+  tabIconWrapFocused: {
     backgroundColor: '#EFF6FF',
   },
 });

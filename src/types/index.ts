@@ -41,6 +41,7 @@ export interface Patient {
   medicalHistory: string[];
   lastVisit: string;
   avatar?: string;
+  avatarKey?: 'ramesh' | 'brooklyn' | 'eleanor' | 'guy' | string;
   condition?: string;
   statusRisk?: 'Under Risk' | 'Moderate' | 'Normal';
   dateAdded?: string;
