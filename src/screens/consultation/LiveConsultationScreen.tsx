@@ -5,18 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
+  Image,
   Modal,
-  Alert,
   ActivityIndicator,
+  TextInput,
+  SafeAreaView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useMobileApp } from '../../context/MobileAppContext';
-import { MobileHeader } from '../../components/common/MobileHeader';
-import { TranscriptBubble } from '../../components/consultation/TranscriptBubble';
 import { LiveWaveform } from '../../components/consultation/LiveWaveform';
-import { TerminologyPill } from '../../components/consultation/TerminologyPill';
-import { ActionButton } from '../../components/common/ActionButton';
 
 interface Props {
   navigation: any;
@@ -26,536 +24,807 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
   const {
     selectedPatient,
     isRecording,
+    isPaused,
+    isMuted,
     consultationSeconds,
     liveTranscript,
-    liveInsights,
     isProcessingNote,
-    selectedLanguage,
-    setSelectedLanguage,
-    toggleRecording,
+    togglePause,
+    toggleMute,
     endConsultation,
     addTranscriptMessage,
   } = useMobileApp();
 
-  const [inputTurnText, setInputTurnText] = useState('');
-  const [selectedRole, setSelectedRole] = useState<'Doctor' | 'Patient'>('Doctor');
-  const [isLangModalOpen, setIsLangModalOpen] = useState(false);
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [showAddTurnInput, setShowAddTurnInput] = useState(false);
+  const [newTurnText, setNewTurnText] = useState('');
+  const [newTurnRole, setNewTurnRole] = useState<'Doctor' | 'Patient'>('Doctor');
 
   const formatTimer = (totalSec: number) => {
     const mins = Math.floor(totalSec / 60);
     const secs = totalSec % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(
+      Math.floor((totalSec * 10) % 60)
+    ).padStart(2, '0').slice(0, 2)}`;
   };
 
-  const handleSendTurn = () => {
-    if (!inputTurnText.trim()) return;
-    addTranscriptMessage(inputTurnText.trim(), selectedRole);
-    setInputTurnText('');
-    // Alternate role suggestion for next turn
-    setSelectedRole((prev) => (prev === 'Doctor' ? 'Patient' : 'Doctor'));
+  // Standard timer format (MM:SS or HH:MM:SS) - in screenshot: "00:04:32"
+  const formatStandardTimer = (totalSec: number) => {
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const handleFinishConsultation = async () => {
+  const handleEndConsultationConfirm = async () => {
+    setShowEndModal(false);
     try {
       const finished = await endConsultation();
       navigation.navigate('ClinicalNoteReview', { consultation: finished });
     } catch (err: any) {
-      Alert.alert('Processing Notice', 'Clinical note generated and ready for review.');
       navigation.navigate('ClinicalNoteReview');
     }
   };
 
-  const LANGUAGES = ['English', 'Kannada (ಕನ್ನಡ)', 'Hindi (हिंदी)', 'Tamil (தமிழ்)', 'Telugu (తెలుగు)', 'Malayalam (മലയാളം)'];
+  const handleAddTurn = () => {
+    if (!newTurnText.trim()) return;
+    addTranscriptMessage(newTurnText.trim(), newTurnRole);
+    setNewTurnText('');
+    setNewTurnRole((prev) => (prev === 'Doctor' ? 'Patient' : 'Doctor'));
+    setShowAddTurnInput(false);
+  };
+
+  const getStatusText = () => {
+    if (isMuted) return 'Live Session · Microphone is muted';
+    if (isPaused) return 'Live Session · AI Scribe is paused';
+    if (isRecording) return 'Live Session · AI Scribe is listening';
+    return 'Session Ended';
+  };
 
   return (
-    <View style={styles.container}>
-      <MobileHeader
-        title={selectedPatient.firstName + ' ' + selectedPatient.lastName}
-        subtitle={`${selectedPatient.patientCode} · ${selectedPatient.age}y ${selectedPatient.gender}`}
-        showBack
-        onBack={() => navigation.goBack()}
-        rightAction={
-          <TouchableOpacity
-            style={styles.langPill}
-            onPress={() => setIsLangModalOpen(true)}
-          >
-            <Ionicons name="globe-outline" size={14} color="#2563EB" />
-            <Text style={styles.langPillText}>{selectedLanguage.split(' ')[0]}</Text>
-          </TouchableOpacity>
-        }
-      />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="dark" />
 
-      {/* Recording Control & Waveform Header */}
-      <View style={styles.recordingHeader}>
-        <View style={styles.timerRow}>
-          <View style={styles.pulseIndicator}>
-            <View style={[styles.pulseDot, !isRecording && styles.pulseDotPaused]} />
-            <Text style={styles.statusLabel}>
-              {isRecording ? 'AI Scribing Active' : 'Scribing Paused'}
-            </Text>
-          </View>
-          <Text style={styles.timerText}>{formatTimer(consultationSeconds)}</Text>
-        </View>
-
-        <LiveWaveform isActive={isRecording} />
-
-        <View style={styles.controlsRow}>
-          <TouchableOpacity
-            style={[styles.recordToggleBtn, !isRecording && styles.resumeBtn]}
-            onPress={toggleRecording}
-          >
-            <Ionicons
-              name={isRecording ? 'pause' : 'mic'}
-              size={18}
-              color={isRecording ? '#DC2626' : '#2563EB'}
-            />
-            <Text style={[styles.recordToggleText, !isRecording && styles.resumeText]}>
-              {isRecording ? 'Pause Recording' : 'Resume Mic'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.sampleDialogueBtn}
-            onPress={() => {
-              if (selectedRole === 'Doctor') {
-                addTranscriptMessage('Any shortness of breath or chest pain?', 'Doctor');
-                setSelectedRole('Patient');
-              } else {
-                addTranscriptMessage('A little shortness of breath, especially at night. No chest pain though.', 'Patient');
-                setSelectedRole('Doctor');
-              }
-            }}
-          >
-            <Ionicons name="sparkles" size={14} color="#7C3AED" />
-            <Text style={styles.sampleDialogueText}>+ Quick Turn</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Live Clinical Insights Strip */}
-      {liveInsights.length > 0 && (
-        <View style={styles.insightsSection}>
-          <Text style={styles.insightsSectionTitle}>Extracted Clinical Entities</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.insightsScroll}
-          >
-            {liveInsights.map((insight) => (
-              <TerminologyPill key={insight.id} insight={insight} />
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Live Verbatim Dialogue List */}
-      <ScrollView style={styles.transcriptScroll} contentContainerStyle={styles.transcriptContent}>
-        {liveTranscript.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconCircle}>
-              <Ionicons name="mic-outline" size={32} color="#94A3B8" />
+      {/* Main Scrollable Content */}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top MediScribe Header matching screenshot */}
+        <View style={styles.topHeader}>
+          <View style={styles.brandContainer}>
+            <View style={styles.stethoscopeIconContainer}>
+              <FontAwesome5 name="stethoscope" size={24} color="#2563EB" />
             </View>
-            <Text style={styles.emptyTitle}>Listening for Clinical Speech</Text>
-            <Text style={styles.emptySubtitle}>
-              Speak naturally between doctor and patient. Verbatim speech turns, repeated phrases, and medical terminology are captured live.
+            <View style={styles.brandTextColumn}>
+              <Text style={styles.brandTitle}>MediScribe</Text>
+              <Text style={styles.brandSubtitle}>CLINICIAN</Text>
+            </View>
+          </View>
+
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
+              <Ionicons name="notifications-outline" size={24} color="#334155" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <Image
+                source={require('../../../assets/doctor-avatar.png')}
+                style={styles.doctorAvatar}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Live consultation Title */}
+        <View style={styles.titleSection}>
+          <Text style={styles.mainTitle}>Live consultation</Text>
+          <Text style={styles.subtitle}>Your AI Clinical Assistant</Text>
+        </View>
+
+        {/* Patient Details Card matching screenshot */}
+        <View style={styles.patientCard}>
+          <View style={styles.patientTopRow}>
+            <Image
+              source={require('../../../assets/patient-avatar.png')}
+              style={styles.patientAvatar}
+            />
+            <View style={styles.patientInfoColumn}>
+              <Text style={styles.patientName}>
+                {selectedPatient.firstName} {selectedPatient.lastName}
+              </Text>
+              <Text style={styles.patientMeta}>
+                {selectedPatient.gender} · {selectedPatient.age} years · {selectedPatient.patientCode}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.patientCondition}>
+            {selectedPatient.condition || 'Persistent cough and mild fever'}
+          </Text>
+        </View>
+
+        {/* AI Scribe Session Card matching screenshot */}
+        <View style={styles.scribeCard}>
+          {/* Status Pill Banner */}
+          <View
+            style={[
+              styles.statusBanner,
+              isPaused && styles.statusBannerPaused,
+              isMuted && styles.statusBannerMuted,
+            ]}
+          >
+            <View
+              style={[
+                styles.statusDot,
+                isPaused && styles.statusDotPaused,
+                isMuted && styles.statusDotMuted,
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusText,
+                isPaused && styles.statusTextPaused,
+                isMuted && styles.statusTextMuted,
+              ]}
+            >
+              {getStatusText()}
             </Text>
           </View>
-        ) : (
-          liveTranscript.map((msg) => (
-            <TranscriptBubble key={msg.id} message={msg} />
-          ))
-        )}
+
+          {/* Illustrated Doctor Character */}
+          <View style={styles.characterContainer}>
+            <Image
+              source={require('../../../assets/doctor-character.png')}
+              style={styles.characterImage}
+            />
+          </View>
+
+          {/* Large Bold Timer */}
+          <Text style={styles.timerDisplay}>
+            {formatStandardTimer(consultationSeconds)}
+          </Text>
+
+          {/* Symmetrical Vivid Waveform */}
+          <LiveWaveform isActive={isRecording && !isPaused && !isMuted} />
+
+          {/* Control Action Buttons Row matching screenshot */}
+          <View style={styles.actionRow}>
+            {/* Pause / Resume Button */}
+            <TouchableOpacity
+              style={[styles.actionBtn, isPaused && styles.actionBtnActive]}
+              onPress={togglePause}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isPaused ? 'play' : 'pause'}
+                size={22}
+                color={isPaused ? '#2563EB' : '#334155'}
+              />
+              <Text style={[styles.actionBtnText, isPaused && styles.actionBtnTextActive]}>
+                {isPaused ? 'Resume' : 'Pause'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* End Session Button */}
+            <TouchableOpacity
+              style={styles.endSessionBtn}
+              onPress={() => setShowEndModal(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="stop" size={20} color="#EF4444" />
+              <Text style={styles.endSessionText}>End session</Text>
+            </TouchableOpacity>
+
+            {/* Mute / Unmute Button */}
+            <TouchableOpacity
+              style={[styles.actionBtn, isMuted && styles.actionBtnActive]}
+              onPress={toggleMute}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isMuted ? 'mic' : 'mic-off'}
+                size={22}
+                color={isMuted ? '#DC2626' : '#334155'}
+              />
+              <Text style={[styles.actionBtnText, isMuted && styles.actionBtnTextActive]}>
+                {isMuted ? 'Unmute' : 'Mute'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Live Transcript Card matching screenshot */}
+        <View style={styles.transcriptCard}>
+          <View style={styles.transcriptCardHeader}>
+            <Text style={styles.transcriptCardTitle}>Live Transcript</Text>
+            <TouchableOpacity
+              style={styles.addTurnToggleBtn}
+              onPress={() => setShowAddTurnInput((prev) => !prev)}
+            >
+              <Ionicons
+                name={showAddTurnInput ? 'close' : 'add-circle-outline'}
+                size={20}
+                color="#2563EB"
+              />
+              <Text style={styles.addTurnToggleText}>
+                {showAddTurnInput ? 'Cancel' : 'Add Speech'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Quick Speech Turn Input */}
+          {showAddTurnInput && (
+            <View style={styles.inputTurnContainer}>
+              <View style={styles.speakerSelectorRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.roleTogglePill,
+                    newTurnRole === 'Doctor' && styles.roleTogglePillActive,
+                  ]}
+                  onPress={() => setNewTurnRole('Doctor')}
+                >
+                  <Text
+                    style={[
+                      styles.roleToggleText,
+                      newTurnRole === 'Doctor' && styles.roleToggleTextActive,
+                    ]}
+                  >
+                    Doctor
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.roleTogglePill,
+                    newTurnRole === 'Patient' && styles.roleTogglePillActive,
+                  ]}
+                  onPress={() => setNewTurnRole('Patient')}
+                >
+                  <Text
+                    style={[
+                      styles.roleToggleText,
+                      newTurnRole === 'Patient' && styles.roleToggleTextActive,
+                    ]}
+                  >
+                    Patient
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder={`Spoken line as ${newTurnRole}...`}
+                  placeholderTextColor="#94A3B8"
+                  value={newTurnText}
+                  onChangeText={setNewTurnText}
+                />
+                <TouchableOpacity
+                  style={styles.sendTurnBtn}
+                  onPress={handleAddTurn}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="arrow-up" size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Dialogue Turns */}
+          <View style={styles.dialogueList}>
+            {liveTranscript.map((turn) => {
+              const speakerName = turn.speaker === 'Doctor' ? 'Doctor' : 'Patient';
+              return (
+                <View key={turn.id} style={styles.turnBlock}>
+                  <Text style={styles.speakerLabel}>{speakerName}</Text>
+                  <Text style={styles.turnSpeechText}>{turn.text}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Security & Encryption Banner matching screenshot */}
+        <View style={styles.securityBanner}>
+          <Text style={styles.securityBannerText}>
+            Secure & Private · Consultations are encrypted
+          </Text>
+        </View>
       </ScrollView>
 
-      {/* Manual Turn Injector & Speaker Toggle */}
-      <View style={styles.inputBar}>
-        <View style={styles.roleSelector}>
-          <TouchableOpacity
-            style={[styles.roleOption, selectedRole === 'Doctor' && styles.roleOptionActiveDoc]}
-            onPress={() => setSelectedRole('Doctor')}
-          >
-            <Text
-              style={[
-                styles.roleOptionText,
-                selectedRole === 'Doctor' && styles.roleOptionTextActive,
-              ]}
-            >
-              Doctor
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.roleOption, selectedRole === 'Patient' && styles.roleOptionActivePat]}
-            onPress={() => setSelectedRole('Patient')}
-          >
-            <Text
-              style={[
-                styles.roleOptionText,
-                selectedRole === 'Patient' && styles.roleOptionTextActive,
-              ]}
-            >
-              Patient
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.textInputRow}>
-          <TextInput
-            value={inputTurnText}
-            onChangeText={setInputTurnText}
-            placeholder={`Type ${selectedRole.toLowerCase()} speech...`}
-            placeholderTextColor="#94A3B8"
-            style={styles.textInput}
-            onSubmitEditing={handleSendTurn}
-          />
-          <TouchableOpacity
-            style={styles.sendButton}
-            onPress={handleSendTurn}
-            disabled={!inputTurnText.trim()}
-          >
-            <Ionicons name="send" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Bottom Sticky Action: End Consultation & Generate Note */}
-      <View style={styles.bottomBar}>
-        <ActionButton
-          title="End Consultation & Generate Note"
-          icon="document-text"
-          variant="success"
-          loading={isProcessingNote}
-          onPress={handleFinishConsultation}
-          style={styles.finishBtn}
-        />
-      </View>
-
-      {/* Language Selection Modal */}
-      <Modal
-        visible={isLangModalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsLangModalOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
+      {/* End Consultation Confirmation Modal */}
+      <Modal visible={showEndModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Scribing Language</Text>
-              <TouchableOpacity onPress={() => setIsLangModalOpen(false)}>
-                <Ionicons name="close" size={24} color="#64748B" />
+            <View style={styles.modalIconWrap}>
+              <Ionicons name="document-text" size={32} color="#2563EB" />
+            </View>
+            <Text style={styles.modalTitle}>End Consultation Session</Text>
+            <Text style={styles.modalDesc}>
+              Finalize consultation for {selectedPatient.firstName} {selectedPatient.lastName}?
+              Pivot AI will run speaker diarization, extract medical findings, and generate the SOAP
+              note and prescription draft.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowEndModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={handleEndConsultationConfirm}
+              >
+                <Text style={styles.modalConfirmText}>Generate Note</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSubtitle}>
-              Continuous dual-channel transcription in Indic scripts with automatic medical English translation.
-            </Text>
-
-            {LANGUAGES.map((lang) => (
-              <TouchableOpacity
-                key={lang}
-                style={[
-                  styles.langOption,
-                  selectedLanguage.startsWith(lang.split(' ')[0]) && styles.langOptionSelected,
-                ]}
-                onPress={() => {
-                  setSelectedLanguage(lang);
-                  setIsLangModalOpen(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.langOptionText,
-                    selectedLanguage.startsWith(lang.split(' ')[0]) && styles.langOptionTextSelected,
-                  ]}
-                >
-                  {lang}
-                </Text>
-                {selectedLanguage.startsWith(lang.split(' ')[0]) && (
-                  <Ionicons name="checkmark-circle" size={20} color="#2563EB" />
-                )}
-              </TouchableOpacity>
-            ))}
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* AI Processing Overlay */}
+      {isProcessingNote && (
+        <Modal visible={isProcessingNote} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.processingCard}>
+              <ActivityIndicator size="large" color="#2563EB" />
+              <Text style={styles.processingTitle}>Generating Clinical Note...</Text>
+              <Text style={styles.processingSubtitle}>
+                Structuring SOAP documentation, prescription candidate review, and verified medical
+                codes.
+              </Text>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#EFF4FA',
+  },
   container: {
     flex: 1,
     backgroundColor: '#EFF4FA',
   },
-  langPill: {
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 28,
+  },
+  /* Top MediScribe Header */
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    gap: 4,
-  },
-  langPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  recordingHeader: {
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  timerRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+    paddingVertical: 10,
+    marginBottom: 8,
   },
-  pulseIndicator: {
+  brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
-  pulseDot: {
+  stethoscopeIconContainer: {
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  brandTextColumn: {
+    justifyContent: 'center',
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  brandSubtitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginTop: -1,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  notificationBtn: {
+    padding: 6,
+    marginRight: 10,
+  },
+  doctorAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E2E8F0',
+  },
+  /* Title Section */
+  titleSection: {
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  mainTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  /* Patient Details Card */
+  patientCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  patientTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  patientAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#E2E8F0',
+  },
+  patientInfoColumn: {
+    marginLeft: 14,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  patientName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  patientMeta: {
+    fontSize: 13.5,
+    color: '#64748B',
+    marginTop: 3,
+  },
+  patientCondition: {
+    fontSize: 15,
+    color: '#475569',
+    marginTop: 12,
+  },
+  /* Live Scribe Card */
+  scribeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    alignItems: 'center',
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignSelf: 'stretch',
+  },
+  statusBannerPaused: {
+    backgroundColor: '#FEF3C7',
+  },
+  statusBannerMuted: {
+    backgroundColor: '#FEE2E2',
+  },
+  statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#10B981',
+    marginRight: 8,
   },
-  pulseDotPaused: {
+  statusDotPaused: {
     backgroundColor: '#F59E0B',
   },
-  statusLabel: {
-    fontSize: 12,
+  statusDotMuted: {
+    backgroundColor: '#EF4444',
+  },
+  statusText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#15803D',
+  },
+  statusTextPaused: {
+    color: '#B45309',
+  },
+  statusTextMuted: {
+    color: '#B91C1C',
+  },
+  characterContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+    height: 180,
+  },
+  characterImage: {
+    width: 130,
+    height: 180,
+    resizeMode: 'contain',
+  },
+  timerDisplay: {
+    fontSize: 34,
     fontWeight: '700',
     color: '#0F172A',
+    letterSpacing: 0.5,
+    marginVertical: 4,
   },
-  timerText: {
-    fontSize: 14,
-    fontFamily: 'monospace',
-    fontWeight: '800',
-    color: '#2563EB',
-  },
-  controlsRow: {
+  /* Control Action Buttons Row */
+  actionRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
-    gap: 8,
+    alignSelf: 'stretch',
+    marginTop: 16,
+    gap: 10,
   },
-  recordToggleBtn: {
+  actionBtn: {
     flex: 1,
-    flexDirection: 'row',
+    height: 58,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    gap: 6,
   },
-  resumeBtn: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+  actionBtnActive: {
+    backgroundColor: '#E2E8F0',
   },
-  recordToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#DC2626',
+  actionBtnText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+    marginTop: 4,
   },
-  resumeText: {
+  actionBtnTextActive: {
     color: '#2563EB',
   },
-  sampleDialogueBtn: {
+  endSessionBtn: {
+    flex: 1.25,
+    height: 58,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endSessionText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginTop: 4,
+  },
+  /* Live Transcript Card */
+  transcriptCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  transcriptCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#F5F3FF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#DDD6FE',
-    gap: 4,
-  },
-  sampleDialogueText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#7C3AED',
-  },
-  insightsSection: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  insightsSectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  insightsScroll: {
-    paddingRight: 10,
-  },
-  transcriptScroll: {
-    flex: 1,
-  },
-  transcriptContent: {
-    padding: 14,
-    paddingBottom: 24,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#E2E8F0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  inputBar: {
-    backgroundColor: '#FFFFFF',
-    padding: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  roleSelector: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    gap: 8,
-  },
-  roleOption: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  roleOptionActiveDoc: {
-    backgroundColor: '#DBEAFE',
-  },
-  roleOptionActivePat: {
-    backgroundColor: '#DCFCE7',
-  },
-  roleOptionText: {
-    fontSize: 12,
+  transcriptCardTitle: {
+    fontSize: 18,
     fontWeight: '700',
-    color: '#64748B',
-  },
-  roleOptionTextActive: {
     color: '#0F172A',
   },
-  textInputRow: {
+  addTurnToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#EFF6FF',
+  },
+  addTurnToggleText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  inputTurnContainer: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  speakerSelectorRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  roleTogglePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#E2E8F0',
+  },
+  roleTogglePillActive: {
+    backgroundColor: '#2563EB',
+  },
+  roleToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  roleToggleTextActive: {
+    color: '#FFFFFF',
+  },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    height: 40,
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
     fontSize: 14,
     color: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
   },
-  sendButton: {
-    backgroundColor: '#2563EB',
+  sendTurnBtn: {
     width: 38,
     height: 38,
     borderRadius: 10,
+    backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bottomBar: {
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+  dialogueList: {
+    marginTop: 4,
   },
-  finishBtn: {
+  turnBlock: {
+    marginBottom: 16,
+  },
+  speakerLabel: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#2563EB',
+    marginBottom: 4,
+  },
+  turnSpeechText: {
+    fontSize: 15,
+    color: '#1E293B',
+    lineHeight: 22,
+  },
+  /* Security Banner */
+  securityBanner: {
+    backgroundColor: '#ECFDF5',
     borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  modalBackdrop: {
+  securityBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  /* Modals */
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: 36,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderRadius: 20,
+    padding: 22,
+    width: '100%',
+    maxWidth: 380,
     alignItems: 'center',
-    marginBottom: 6,
+  },
+  modalIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#0F172A',
-  },
-  modalSubtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 16,
-    lineHeight: 16,
-  },
-  langOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    textAlign: 'center',
   },
-  langOptionSelected: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#93C5FD',
+  modalDesc: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
   },
-  langOptionText: {
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
+    color: '#475569',
   },
-  langOptionTextSelected: {
-    color: '#1D4ED8',
-    fontWeight: '800',
+  modalConfirmBtn: {
+    flex: 1.2,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: '#2563EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalConfirmText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  processingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    maxWidth: 340,
+  },
+  processingTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  processingSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
-

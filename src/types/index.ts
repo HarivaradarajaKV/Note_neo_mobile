@@ -148,10 +148,11 @@ export interface ConsultationSession {
   time: string;
   durationSeconds: number;
   reasonForVisit: string;
-  status: 'in_progress' | 'paused' | 'processing' | 'review_required' | 'approved' | 'exported';
+  status: 'in_progress' | 'paused' | 'processing' | 'review_required' | 'review_pending' | 'approved' | 'exported';
   transcript: TranscriptMessage[];
   insights: AIInsight[];
   note?: SOAPNote;
+  soapNote?: SOAPNote;
 }
 
 export interface Appointment {

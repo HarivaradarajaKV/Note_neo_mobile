@@ -5,24 +5,34 @@ interface Props {
   isActive: boolean;
 }
 
+// 25-bar symmetrical soundwave matching screenshot
+const BASE_HEIGHTS = [
+  4, 8, 16, 24, 18, 12, 16, 22, 28, 22, 18, 24, 28, 24, 18, 22, 28, 22, 16, 12, 18, 24, 16, 8, 4,
+];
+
 export const LiveWaveform: React.FC<Props> = ({ isActive }) => {
-  const anim1 = useRef(new Animated.Value(6)).current;
-  const anim2 = useRef(new Animated.Value(14)).current;
-  const anim3 = useRef(new Animated.Value(22)).current;
-  const anim4 = useRef(new Animated.Value(12)).current;
-  const anim5 = useRef(new Animated.Value(18)).current;
+  const animatedValues = useRef(
+    BASE_HEIGHTS.map((h) => new Animated.Value(h))
+  ).current;
 
   useEffect(() => {
     if (!isActive) {
-      anim1.setValue(6);
-      anim2.setValue(8);
-      anim3.setValue(10);
-      anim4.setValue(8);
-      anim5.setValue(6);
+      animatedValues.forEach((val, i) => {
+        Animated.timing(val, {
+          toValue: Math.max(4, BASE_HEIGHTS[i] * 0.4),
+          duration: 250,
+          useNativeDriver: false,
+        }).start();
+      });
       return;
     }
 
-    const createPulse = (val: Animated.Value, min: number, max: number, duration: number) => {
+    const loops = animatedValues.map((val, i) => {
+      const base = BASE_HEIGHTS[i];
+      const max = Math.min(32, Math.max(14, base * 1.35));
+      const min = Math.max(3, base * 0.45);
+      const duration = 280 + (i % 5) * 60;
+
       return Animated.loop(
         Animated.sequence([
           Animated.timing(val, {
@@ -37,36 +47,28 @@ export const LiveWaveform: React.FC<Props> = ({ isActive }) => {
           }),
         ])
       );
-    };
+    });
 
-    const p1 = createPulse(anim1, 6, 26, 320);
-    const p2 = createPulse(anim2, 8, 36, 400);
-    const p3 = createPulse(anim3, 10, 44, 280);
-    const p4 = createPulse(anim4, 8, 32, 360);
-    const p5 = createPulse(anim5, 6, 24, 450);
-
-    p1.start();
-    p2.start();
-    p3.start();
-    p4.start();
-    p5.start();
+    loops.forEach((l) => l.start());
 
     return () => {
-      p1.stop();
-      p2.stop();
-      p3.stop();
-      p4.stop();
-      p5.stop();
+      loops.forEach((l) => l.stop());
     };
   }, [isActive]);
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.bar, { height: anim1 }]} />
-      <Animated.View style={[styles.bar, { height: anim2 }]} />
-      <Animated.View style={[styles.bar, { height: anim3, backgroundColor: '#2563EB' }]} />
-      <Animated.View style={[styles.bar, { height: anim4 }]} />
-      <Animated.View style={[styles.bar, { height: anim5 }]} />
+      {animatedValues.map((heightVal, idx) => (
+        <Animated.View
+          key={idx}
+          style={[
+            styles.bar,
+            {
+              height: heightVal,
+            },
+          ]}
+        />
+      ))}
     </View>
   );
 };
@@ -76,13 +78,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 48,
-    gap: 4,
+    height: 38,
+    marginVertical: 12,
   },
   bar: {
-    width: 4,
+    width: 3.2,
+    backgroundColor: '#2563EB',
     borderRadius: 2,
-    backgroundColor: '#3B82F6',
+    marginHorizontal: 1.8,
   },
 });
-
