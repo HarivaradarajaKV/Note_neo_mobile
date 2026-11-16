@@ -101,7 +101,8 @@ interface MobileAppContextType {
   loginWithCredentials: (email: string, password?: string) => Promise<AuthUser>;
   logout: () => void;
   selectPatient: (patient: Patient) => void;
-  startConsultation: (patient?: Patient) => void;
+  startConsultation: (patient?: Patient, reason?: string) => void;
+  cancelConsultation: () => void;
   toggleRecording: () => void;
   togglePause: () => void;
   toggleMute: () => void;
@@ -124,10 +125,10 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [consultations, setConsultations] = useState<ConsultationSession[]>(INITIAL_CONSULTATIONS);
   const [activeConsultation, setActiveConsultation] = useState<ConsultationSession | null>(null);
-  const [isRecording, setIsRecording] = useState<boolean>(true);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [consultationSeconds, setConsultationSeconds] = useState<number>(272); // 00:04:32 as in screenshot
+  const [consultationSeconds, setConsultationSeconds] = useState<number>(0);
   const [liveTranscript, setLiveTranscript] = useState<TranscriptMessage[]>(INITIAL_LIVE_TRANSCRIPT);
   const [liveInsights, setLiveInsights] = useState<AIInsight[]>([]);
   const [isProcessingNote, setIsProcessingNote] = useState<boolean>(false);
@@ -255,8 +256,9 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSelectedPatient(patient);
   };
 
-  const startConsultation = (patient?: Patient) => {
+  const startConsultation = (patient?: Patient, reason?: string) => {
     const targetPatient = patient || selectedPatient;
+    const presentation = reason || targetPatient.condition || 'Chest tightness & dyspnea';
     setSelectedPatient(targetPatient);
     const newSessionId = `cons-${Date.now()}`;
     const newSession: ConsultationSession = {
@@ -266,7 +268,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       date: 'Today',
       time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       durationSeconds: 0,
-      reasonForVisit: targetPatient.condition || 'Chest tightness & dyspnea',
+      reasonForVisit: presentation,
       status: 'in_progress',
       transcript: INITIAL_LIVE_TRANSCRIPT,
       insights: [],
@@ -274,7 +276,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setActiveConsultation(newSession);
     setLiveTranscript(INITIAL_LIVE_TRANSCRIPT);
     setLiveInsights([]);
-    setConsultationSeconds(272);
+    setConsultationSeconds(0);
     setIsRecording(true);
     setIsPaused(false);
     setIsMuted(false);
@@ -284,9 +286,16 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .create({
         patientId: targetPatient.id,
         doctorId: currentUser.id || 'user-doc-001',
-        reasonForVisit: targetPatient.condition || 'Chest tightness & dyspnea',
+        reasonForVisit: presentation,
       })
       .catch((e) => console.debug('[MobileAppContext] Backend consultation record notice:', e));
+  };
+
+  const cancelConsultation = () => {
+    setIsRecording(false);
+    setIsPaused(false);
+    setActiveConsultation(null);
+    setConsultationSeconds(0);
   };
 
   const toggleRecording = () => {
@@ -398,7 +407,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     setConsultations((prev) => [finalizedSession, ...prev]);
-    setActiveConsultation(finalizedSession);
+    setActiveConsultation(null);
     setIsProcessingNote(false);
 
     return finalizedSession;
@@ -482,6 +491,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         logout,
         selectPatient,
         startConsultation,
+        cancelConsultation,
         toggleRecording,
         togglePause,
         toggleMute,
