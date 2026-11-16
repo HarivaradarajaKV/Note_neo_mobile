@@ -49,13 +49,18 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
       time: '10:30 AM',
       durationSeconds: 272,
       reasonForVisit: 'Progressive chronic chest tightness and nocturnal dyspnea',
-      status: 'review_required',
+      status: 'approved',
       transcript: [],
       insights: [],
     };
 
   const patient = session.patient || hayliePatient;
-  const [isSigned, setIsSigned] = useState(session.status === 'approved');
+
+  // Default to true (Finalized encounter) as shown in the requested screenshots,
+  // or allow parameter override if explicitly passed as draft
+  const [isSigned, setIsSigned] = useState<boolean>(
+    route?.params?.isDraft ? false : true
+  );
   const [insertedCompanion, setInsertedCompanion] = useState(false);
 
   const getPatientAvatarSource = (pat: Patient) => {
@@ -94,7 +99,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
   };
 
   const handleExportPDF = async () => {
-    const noteText = `MEDISCRIBE CLINICAL ENCOUNTER NOTE (MSG-99214A)\nPatient: ${patient.firstName} ${patient.lastName} (${patient.patientCode})\nAttending: Dr. Marleen\nStatus: ${isSigned ? 'SIGNED & LOCKED' : 'DRAFT (UNSIGNED)'}\n\nSUBJECTIVE:\n${getSubjectiveText()}\n\nOBJECTIVE:\n${getObjectiveText()}\n\nASSESSMENT:\n${getAssessmentText()}\n\nPLAN:\n${getPlanText()}\n\nDISCOVERED PRESCRIPTIONS:\n- Digoxin (resume dosage): 0.125 mg once daily\n- Furosemide (temporary): 20 mg once daily`;
+    const noteText = `MEDISCRIBE CLINICAL ENCOUNTER NOTE (MSG-99214A)\nPatient: ${patient.firstName} ${patient.lastName} (${patient.patientCode})\nAttending: Dr. Marleen (NPI #194829140)\nStatus: SIGNED & LOCKED\nDate: Jan 24, 2026 at 10:45 AM\nSHA-256: 4b9a9d...2dfa\n\nSUBJECTIVE:\n${getSubjectiveText()}\n\nOBJECTIVE:\n${getObjectiveText()}\n\nASSESSMENT:\n${getAssessmentText()}\n\nPLAN:\n${getPlanText()}\n\nENCOUNTER DIAGNOSES:\n- CHF Exacerbation (I50.9)\n- Atrial Fibrillation (I48.91)\n\nPRESCRIPTIONS LOGGED:\n- Digoxin (reinstated): 0.125 mg once daily\n- Furosemide (temporary): 20 mg once daily`;
     try {
       await Share.share({
         title: `Clinical Note - ${patient.firstName} ${patient.lastName}`,
@@ -111,7 +116,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
   const handlePushedToEHR = () => {
     Alert.alert(
       'Pushed to EHR',
-      `Encounter note MSG-99214A successfully synchronized to hospital EHR via HL7/FHIR interface.`
+      `Encounter note MSG-99214A successfully synchronized and verified in hospital EHR via HL7/FHIR interface.`
     );
   };
 
@@ -123,9 +128,13 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
     );
   };
 
+  const handleReturnToPatients = () => {
+    navigation.navigate('Patients');
+  };
+
   const getSubjectiveText = () => {
     const baseText =
-      'Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is "gasping for air" during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.';
+      "Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is 'gasping for air' during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.";
     if (insertedCompanion) {
       return `${baseText}\n\n[AI Scribe Insight]: Skipping Digoxin doses correlates with the onset of acute orthopnea and paroxysmal nocturnal dyspnea, highly suggestive of left-sided ventricular overload.`;
     }
@@ -133,11 +142,11 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
   };
 
   const getObjectiveText = () => {
-    return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air.\nCardiovascular: Irregular rhythm, S1/S2 audible, no new murmurs. Lungs: Mild bilateral bibasilar crackles on auscultation. Minimal pedal edema bilaterally.';
+    return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air. Cardiovascular: Irregular rhythm, S1/S2 audible, no new murmurs. Lungs: Mild bilateral bibasilar crackles on auscultation. Minimal pedal edema bilaterally.';
   };
 
   const getAssessmentText = () => {
-    return '1. Paroxysmal Nocturnal Dyspnea secondary to Exacerbation of Chronic Heart Failure.\n2. Persistent Atrial Fibrillation with sub-therapeutic Digoxin compliance.\n3. Patient demonstrates poor adherence to medication schedule because of GI sensitivity.';
+    return '1. Paroxysmal Nocturnal Dyspnea secondary to Exacerbation of Chronic Heart Failure. 2. Persistent Atrial Fibrillation with sub-therapeutic Digoxin compliance. 3. Patient demonstrates poor adherence to medication schedule because of GI sensitivity.';
   };
 
   const getPlanText = () => {
@@ -191,7 +200,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           </View>
         </View>
 
-        {/* Title Section: "Clinical note draft" vs "Finalized encounter" */}
+        {/* Title Section: "Finalized encounter" vs "Clinical note draft" */}
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>
             {isSigned ? 'Finalized encounter' : 'Clinical note draft'}
@@ -216,7 +225,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
             </View>
           </View>
 
-          {/* Status Banner Pill: Amber Draft vs Green Signed & Locked */}
+          {/* Status Banner Pill: Green Signed & Locked vs Amber Draft */}
           <View
             style={[
               styles.statusBanner,
@@ -236,15 +245,15 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           </View>
         </View>
 
-        {/* Action Buttons Bar: Save Draft & Sign & Lock vs Export PDF & Pushed to EHR */}
+        {/* Action Buttons Bar: Export PDF & Pushed to EHR vs Save Draft & Sign & Lock */}
         {isSigned ? (
           <View style={styles.actionRow}>
             <TouchableOpacity
-              style={styles.darkActionBtn}
+              style={styles.exportPdfBtn}
               activeOpacity={0.85}
               onPress={handleExportPDF}
             >
-              <Text style={styles.darkActionBtnText}>Export PDF</Text>
+              <Text style={styles.exportPdfText}>Export PDF</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -304,92 +313,163 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           </View>
         </View>
 
-        {/* AI Clinical Companion Card matching screenshot 3 */}
-        <View style={styles.cardContainer}>
-          <Text style={styles.cardMainHeading}>AI Clinical Companion</Text>
+        {isSigned ? (
+          <>
+            {/* Digitally Cryptographically Signed Card (Screenshot 3) */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>Digitally Cryptographically Signed</Text>
+              <Text style={styles.cryptoSubText}>
+                Authenticated by Dr. Marleen (NPI #194829140) on Jan 24, 2026 at 10:45 AM. SHA-256: 4b9a9d...2dfa
+              </Text>
+            </View>
 
-          {/* Extracted from Live Scribe pill banner */}
-          <View style={styles.extractedBanner}>
-            <Text style={styles.extractedBannerText}>EXTRACTED FROM LIVE SCRIBE</Text>
-          </View>
+            {/* Encounter Diagnoses Card (Screenshots 3 & 4) */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>Encounter Diagnoses</Text>
+              <Text style={styles.diagnosisItem}>CHF Exacerbation (I50.9)</Text>
+              <Text style={[styles.diagnosisItem, { marginTop: 4 }]}>Atrial Fibrillation (I48.91)</Text>
+            </View>
 
-          <Text style={styles.companionBodyText}>
-            Patient reported skipping Digoxin doses last week due to GI upset. This correlates with the onset of acute orthopnea and paroxysmal nocturnal dyspnea, highly suggestive of left-sided ventricular overload.
-          </Text>
+            {/* Prescriptions Logged Card (Screenshots 3 & 4) */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>Prescriptions Logged</Text>
 
-          {/* + Insert into Subjective Button */}
-          <TouchableOpacity
-            style={[
-              styles.insertCompanionBtn,
-              insertedCompanion && styles.insertCompanionBtnActive,
-            ]}
-            onPress={handleInsertCompanion}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.insertCompanionBtnText}>
-              {insertedCompanion ? '✓ Inserted into Subjective' : '+ Insert into Subjective'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+              {/* Digoxin (reinstated) */}
+              <Text style={styles.prescriptionLabel}>Digoxin (reinstated)</Text>
+              <View style={styles.prescriptionBox}>
+                <Text style={styles.prescriptionValue}>0.125 mg once daily</Text>
+              </View>
 
-        {/* Discovered Prescriptions Card matching screenshots 3 & 4 */}
-        <View style={styles.cardContainer}>
-          <Text style={styles.cardMainHeading}>Discovered Prescriptions</Text>
+              {/* Furosemide (temporary) */}
+              <Text style={styles.prescriptionLabel}>Furosemide (temporary)</Text>
+              <View style={[styles.prescriptionBox, { marginBottom: 0 }]}>
+                <Text style={styles.prescriptionValue}>20 mg once daily</Text>
+              </View>
+            </View>
 
-          {/* Prescription 1: Digoxin */}
-          <Text style={styles.prescriptionLabel}>Digoxin (resume dosage)</Text>
-          <View style={styles.prescriptionBox}>
-            <Text style={styles.prescriptionValue}>0.125 mg once daily</Text>
-          </View>
+            {/* Clinical Audit Trail Card (Screenshots 4 & 5) */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>Clinical Audit Trail</Text>
+              <Text style={styles.auditLine}>Note Signed & Locked · Dr. Marleen at 10:45 AM</Text>
+              <Text style={styles.auditLine}>Draft Reviewed & Approved · Dr. Marleen at 10:44 AM</Text>
+              <Text style={[styles.auditLine, { marginBottom: 0 }]}>AI Audio Scribed · MediScribe AI at 10:32 AM</Text>
+            </View>
 
-          {/* Prescription 2: Furosemide */}
-          <Text style={styles.prescriptionLabel}>Furosemide (temporary)</Text>
-          <View style={[styles.prescriptionBox, { marginBottom: 0 }]}>
-            <Text style={styles.prescriptionValue}>20 mg once daily</Text>
-          </View>
-        </View>
+            {/* Return to Patients List Button (Screenshots 4 & 5) */}
+            <TouchableOpacity
+              style={styles.returnPatientsBtn}
+              activeOpacity={0.85}
+              onPress={handleReturnToPatients}
+            >
+              <Text style={styles.returnPatientsBtnText}>Return to Patients List</Text>
+            </TouchableOpacity>
 
-        {/* Action Buttons Bar below Discovered Prescriptions matching screenshot 4 */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.darkActionBtn}
-            activeOpacity={0.85}
-            onPress={handleExportPDF}
-          >
-            <Text style={styles.darkActionBtnText}>Export PDF</Text>
-          </TouchableOpacity>
+            {/* Encounter History Card (Screenshot 5) */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>Encounter History</Text>
 
-          <TouchableOpacity
-            style={styles.blueActionBtn}
-            activeOpacity={0.85}
-            onPress={handlePushedToEHR}
-          >
-            <Text style={styles.blueActionBtnText}>Push to EHR</Text>
-          </TouchableOpacity>
-        </View>
+              {/* Today's Note */}
+              <Text style={styles.historyItemLabel}>Today's Note</Text>
+              <View style={styles.historyItemBox}>
+                <Text style={styles.historyItemText}>Signed · Today, 10:45 AM · Cardiac Assessment</Text>
+              </View>
 
-        {/* Consultation Notes Card matching screenshot 4 */}
-        <View style={styles.cardContainer}>
-          <Text style={styles.cardMainHeading}>Consultation Notes</Text>
+              {/* Cardiology Follow-up */}
+              <Text style={styles.historyItemLabel}>Cardiology Follow-up</Text>
+              <View style={styles.historyItemBox}>
+                <Text style={styles.historyItemText}>Signed · 12 Dec 2025 · Dr. Marleen</Text>
+              </View>
 
-          {/* Note 1: Current Note (Draft) */}
-          <Text style={styles.noteItemLabel}>Current Note (Draft)</Text>
-          <View style={styles.noteItemBox}>
-            <Text style={styles.noteItemText}>AI Scribe · Today, 10:32 AM · General visit</Text>
-          </View>
+              {/* Routine Assessment */}
+              <Text style={styles.historyItemLabel}>Routine Assessment</Text>
+              <View style={[styles.historyItemBox, { marginBottom: 0 }]}>
+                <Text style={styles.historyItemText}>Signed · 14 Aug 2025 · Dr. Marleen</Text>
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            {/* AI Clinical Companion Card (Draft mode) */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>AI Clinical Companion</Text>
 
-          {/* Note 2: Cardiology Follow-up */}
-          <Text style={styles.noteItemLabel}>Cardiology Follow-up</Text>
-          <View style={styles.noteItemBox}>
-            <Text style={styles.noteItemText}>Signed · 12 Dec 2025 · Dr. Marleen</Text>
-          </View>
+              <View style={styles.extractedBanner}>
+                <Text style={styles.extractedBannerText}>EXTRACTED FROM LIVE SCRIBE</Text>
+              </View>
 
-          {/* Note 3: Routine Assessment */}
-          <Text style={styles.noteItemLabel}>Routine Assessment</Text>
-          <View style={[styles.noteItemBox, { marginBottom: 0 }]}>
-            <Text style={styles.noteItemText}>Signed · 14 Aug 2025 · Dr. Marleen</Text>
-          </View>
-        </View>
+              <Text style={styles.companionBodyText}>
+                Patient reported skipping Digoxin doses last week due to GI upset. This correlates with the onset of acute orthopnea and paroxysmal nocturnal dyspnea, highly suggestive of left-sided ventricular overload.
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.insertCompanionBtn,
+                  insertedCompanion && styles.insertCompanionBtnActive,
+                ]}
+                onPress={handleInsertCompanion}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.insertCompanionBtnText}>
+                  {insertedCompanion ? '✓ Inserted into Subjective' : '+ Insert into Subjective'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Discovered Prescriptions Card */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>Discovered Prescriptions</Text>
+
+              <Text style={styles.prescriptionLabel}>Digoxin (resume dosage)</Text>
+              <View style={styles.prescriptionBox}>
+                <Text style={styles.prescriptionValue}>0.125 mg once daily</Text>
+              </View>
+
+              <Text style={styles.prescriptionLabel}>Furosemide (temporary)</Text>
+              <View style={[styles.prescriptionBox, { marginBottom: 0 }]}>
+                <Text style={styles.prescriptionValue}>20 mg once daily</Text>
+              </View>
+            </View>
+
+            {/* Action Buttons below Prescriptions */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={styles.exportPdfBtn}
+                activeOpacity={0.85}
+                onPress={handleExportPDF}
+              >
+                <Text style={styles.exportPdfText}>Export PDF</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.blueActionBtn}
+                activeOpacity={0.85}
+                onPress={handlePushedToEHR}
+              >
+                <Text style={styles.blueActionBtnText}>Push to EHR</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Consultation Notes Card */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>Consultation Notes</Text>
+
+              <Text style={styles.historyItemLabel}>Current Note (Draft)</Text>
+              <View style={styles.historyItemBox}>
+                <Text style={styles.historyItemText}>AI Scribe · Today, 10:32 AM · General visit</Text>
+              </View>
+
+              <Text style={styles.historyItemLabel}>Cardiology Follow-up</Text>
+              <View style={styles.historyItemBox}>
+                <Text style={styles.historyItemText}>Signed · 12 Dec 2025 · Dr. Marleen</Text>
+              </View>
+
+              <Text style={styles.historyItemLabel}>Routine Assessment</Text>
+              <View style={[styles.historyItemBox, { marginBottom: 0 }]}>
+                <Text style={styles.historyItemText}>Signed · 14 Aug 2025 · Dr. Marleen</Text>
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -541,11 +621,37 @@ const styles = StyleSheet.create({
     color: '#059669',
   },
 
-  /* Top & Middle Action Buttons */
+  /* Top Action Buttons */
   actionRow: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 16,
+  },
+  exportPdfBtn: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportPdfText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  pushedEhrBtn: {
+    flex: 1,
+    backgroundColor: '#047857',
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pushedEhrText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
   saveDraftBtn: {
     flex: 1,
@@ -578,19 +684,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  darkActionBtn: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  darkActionBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
   blueActionBtn: {
     flex: 1,
     backgroundColor: '#2563EB',
@@ -609,21 +702,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  pushedEhrBtn: {
-    flex: 1,
-    backgroundColor: '#059669',
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pushedEhrText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
 
-  /* Standard Card Container (SOAP, AI Companion, Prescriptions, Consultation Notes) */
+  /* Standard Card Container */
   cardContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
@@ -666,7 +746,91 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
 
-  /* AI Clinical Companion Elements */
+  /* Digitally Cryptographically Signed Card */
+  cryptoSubText: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: '#64748B',
+    fontWeight: '400',
+  },
+
+  /* Encounter Diagnoses */
+  diagnosisItem: {
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+
+  /* Prescriptions Logged Elements */
+  prescriptionLabel: {
+    fontSize: 13.5,
+    color: '#64748B',
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  prescriptionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 14,
+  },
+  prescriptionValue: {
+    fontSize: 14.5,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+
+  /* Clinical Audit Trail Elements */
+  auditLine: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#1E293B',
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+
+  /* Return to Patients List Button */
+  returnPatientsBtn: {
+    backgroundColor: '#0F172A',
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  returnPatientsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  /* Encounter History Elements */
+  historyItemLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  historyItemBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 14,
+  },
+  historyItemText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+
+  /* AI Clinical Companion Elements (Draft Mode) */
   extractedBanner: {
     backgroundColor: '#EFF6FF',
     borderRadius: 8,
@@ -708,49 +872,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
-  },
-
-  /* Discovered Prescriptions Elements */
-  prescriptionLabel: {
-    fontSize: 13.5,
-    color: '#64748B',
-    fontWeight: '500',
-    marginBottom: 6,
-  },
-  prescriptionBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    marginBottom: 14,
-  },
-  prescriptionValue: {
-    fontSize: 14.5,
-    color: '#0F172A',
-    fontWeight: '500',
-  },
-
-  /* Consultation Notes Elements */
-  noteItemLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 6,
-  },
-  noteItemBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    marginBottom: 14,
-  },
-  noteItemText: {
-    fontSize: 14,
-    color: '#0F172A',
-    fontWeight: '500',
   },
 });
