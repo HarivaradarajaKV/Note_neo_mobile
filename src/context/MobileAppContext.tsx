@@ -147,12 +147,9 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [isRecording, isPaused]);
 
   const loginAsUser = (user: AuthUser) => {
-    setCurrentUser(user);
+    const doctorUser = user.role === 'doctor' ? user : DEMO_AUTH_USERS[0];
+    setCurrentUser(doctorUser);
     setIsAuthenticated(true);
-    if (user.role === 'patient') {
-      const match = patients.find((p) => p.patientCode === user.patientCode) || patients[0];
-      setSelectedPatient(match);
-    }
   };
 
   const logout = () => {
@@ -312,7 +309,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     <MobileAppContext.Provider
       value={{
         currentUser,
-        userRole: currentUser.role,
+        userRole: 'doctor' as UserRole,
         isAuthenticated,
         patients,
         selectedPatient,

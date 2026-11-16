@@ -32,14 +32,14 @@ const NotesNavigator: React.FC = () => {
 
 const SettingsNavigator: React.FC = () => {
   return (
-    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="SystemPreferences">
-      <SettingsStack.Screen name="SystemPreferences" component={SystemPreferencesScreen} />
-      <SettingsStack.Screen name="BillingLicenses" component={BillingLicensesScreen} />
-      <SettingsStack.Screen name="AiScribePreset" component={AiScribePresetScreen} />
-      <SettingsStack.Screen name="EhrIntegrations" component={EhrIntegrationsScreen} />
-      <SettingsStack.Screen name="Notifications" component={NotificationsScreen} />
-      <SettingsStack.Screen name="ClinicalSecurity" component={ClinicalSecurityScreen} />
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="SettingsMain">
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
+      <SettingsStack.Screen name="ClinicalSecurity" component={ClinicalSecurityScreen} />
+      <SettingsStack.Screen name="Notifications" component={NotificationsScreen} />
+      <SettingsStack.Screen name="EhrIntegrations" component={EhrIntegrationsScreen} />
+      <SettingsStack.Screen name="AiScribePreset" component={AiScribePresetScreen} />
+      <SettingsStack.Screen name="BillingLicenses" component={BillingLicensesScreen} />
+      <SettingsStack.Screen name="SystemPreferences" component={SystemPreferencesScreen} />
     </SettingsStack.Navigator>
   );
 };

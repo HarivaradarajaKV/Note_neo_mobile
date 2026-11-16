@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useMobileApp } from '../../context/MobileAppContext';
 import { DEMO_AUTH_USERS } from '../../services/mockData';
 import { CardContainer } from '../../components/common/CardContainer';
@@ -9,35 +9,26 @@ import { AuthUser } from '../../types';
 export const AuthScreen: React.FC = () => {
   const { loginAsUser } = useMobileApp();
 
+  // Mobile application is strictly for doctors - hide all non-doctor roles
+  const doctorUsers = DEMO_AUTH_USERS.filter((user: AuthUser) => user.role === 'doctor');
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.brandHeader}>
         <View style={styles.logoIcon}>
-          <Ionicons name="medical" size={32} color="#2563EB" />
+          <FontAwesome5 name="stethoscope" size={30} color="#2563EB" />
         </View>
-        <Text style={styles.appName}>Pivot Clinical AI</Text>
+        <Text style={styles.appName}>MediScribe</Text>
+        <Text style={styles.clinicianBadge}>CLINICIAN WORKSTATION</Text>
         <Text style={styles.tagline}>Ambient AI Medical Scribe & Consultation System</Text>
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Select Demo Role to Continue</Text>
-        <Text style={styles.sectionSubtitle}>Tap any clinical profile to launch with pre-configured access</Text>
+        <Text style={styles.sectionTitle}>Select Clinician Profile</Text>
+        <Text style={styles.sectionSubtitle}>Tap your attending doctor account to launch consultation suite</Text>
       </View>
 
-      {DEMO_AUTH_USERS.map((user: AuthUser) => {
-        const isDoctor = user.role === 'doctor';
-        const isPatient = user.role === 'patient';
-        const isReceptionist = user.role === 'receptionist';
-        const isAdmin = user.role === 'admin';
-
-        const roleBadgeColor = isDoctor
-          ? '#2563EB'
-          : isPatient
-          ? '#059669'
-          : isReceptionist
-          ? '#D97706'
-          : '#7C3AED';
-
+      {doctorUsers.map((user: AuthUser) => {
         return (
           <TouchableOpacity
             key={user.id}
@@ -50,15 +41,13 @@ export const AuthScreen: React.FC = () => {
                 <View style={styles.userInfo}>
                   <View style={styles.nameRow}>
                     <Text style={styles.userName}>{user.name}</Text>
-                    <View style={[styles.roleBadge, { backgroundColor: roleBadgeColor + '20' }]}>
-                      <Text style={[styles.roleText, { color: roleBadgeColor }]}>
-                        {user.role}
-                      </Text>
+                    <View style={styles.roleBadge}>
+                      <Text style={styles.roleText}>Doctor</Text>
                     </View>
                   </View>
                   <Text style={styles.roleTitle}>{user.roleTitle}</Text>
                   <Text style={styles.departmentText}>
-                    {user.specialty || user.department || user.patientCode || user.hospital}
+                    {user.specialty || user.department || user.hospital}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
@@ -71,7 +60,7 @@ export const AuthScreen: React.FC = () => {
       <View style={styles.footer}>
         <Ionicons name="shield-checkmark" size={16} color="#10B981" />
         <Text style={styles.footerText}>
-          HIPAA & MCI Compliant · Dual-Channel Ambient Scribe
+          HIPAA & SOC-2 Compliant · Dedicated Clinician Portal
         </Text>
       </View>
     </ScrollView>
@@ -100,8 +89,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: '#93C5FD',
   },
   appName: {
     fontSize: 26,
@@ -109,39 +96,48 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: -0.5,
   },
+  clinicianBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+    letterSpacing: 1.2,
+    marginTop: 2,
+    marginBottom: 4,
+  },
   tagline: {
-    fontSize: 13,
+    fontSize: 13.5,
     color: '#64748B',
-    marginTop: 4,
     textAlign: 'center',
+    marginTop: 4,
   },
   sectionHeader: {
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#0F172A',
   },
   sectionSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#64748B',
     marginTop: 2,
   },
   userCard: {
+    padding: 16,
     marginBottom: 12,
+    borderRadius: 16,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     marginRight: 14,
+    backgroundColor: '#E2E8F0',
   },
   userInfo: {
     flex: 1,
@@ -149,34 +145,35 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginRight: 8,
+    marginBottom: 2,
   },
   userName: {
     fontSize: 16,
     fontWeight: '700',
     color: '#0F172A',
+    marginRight: 8,
   },
   roleBadge: {
+    backgroundColor: '#EFF6FF',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: 6,
   },
   roleText: {
     fontSize: 11,
     fontWeight: '700',
-    textTransform: 'uppercase',
+    color: '#2563EB',
+    textTransform: 'capitalize',
   },
   roleTitle: {
     fontSize: 13,
+    fontWeight: '600',
     color: '#334155',
-    fontWeight: '500',
-    marginTop: 2,
+    marginBottom: 2,
   },
   departmentText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
   },
   footer: {
     flexDirection: 'row',
@@ -186,8 +183,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   footerText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748B',
+    fontWeight: '500',
   },
 });
-
