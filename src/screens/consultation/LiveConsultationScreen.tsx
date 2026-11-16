@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,10 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
     consultationSeconds,
     liveTranscript,
     liveInsights,
+    partialTranscript,
+    setPartialTranscript,
+    streamDialogueTurn,
+    streamFullReferenceConsultation,
     isProcessingNote,
     togglePause,
     toggleMute,
@@ -58,8 +62,102 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
   const [showAddTurnInput, setShowAddTurnInput] = useState(false);
   const [newTurnText, setNewTurnText] = useState('');
   const [newTurnRole, setNewTurnRole] = useState<'Doctor' | 'Patient'>('Doctor');
+  const [isStreamingDemo, setIsStreamingDemo] = useState(false);
 
-  // Format timer as HH:MM:SS - exactly "00:04:12" as in screenshot 1
+  // Web Speech API for Ambient Microphone Transcription
+  useEffect(() => {
+    if (!activeConsultation || !isRecording || isPaused || isMuted) return;
+
+    if (typeof window === 'undefined') return;
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    let recognizer: any = null;
+    let isTerminated = false;
+
+    const startRecognition = () => {
+      if (isTerminated) return;
+      try {
+        recognizer = new SpeechRec();
+        recognizer.continuous = true;
+        recognizer.interimResults = true;
+        recognizer.lang = 'en-US';
+
+        recognizer.onresult = (event: any) => {
+          if (isMuted || isPaused || isTerminated) return;
+          let interimText = '';
+          let finalText = '';
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const chunk = event.results[i][0]?.transcript || '';
+            if (event.results[i].isFinal) {
+              finalText += chunk;
+            } else {
+              interimText += chunk;
+            }
+          }
+
+          if (interimText.trim()) {
+            const inferred = inferRole(interimText);
+            setPartialTranscript({ speaker: inferred, text: interimText.trim() });
+          }
+
+          if (finalText.trim()) {
+            const inferred = inferRole(finalText);
+            setPartialTranscript(null);
+            addTranscriptMessage(finalText.trim(), inferred);
+          }
+        };
+
+        recognizer.onerror = () => {
+          if (!isTerminated && isRecording && !isPaused && !isMuted) {
+            setTimeout(startRecognition, 300);
+          }
+        };
+
+        recognizer.onend = () => {
+          if (!isTerminated && isRecording && !isPaused && !isMuted) {
+            setTimeout(startRecognition, 200);
+          }
+        };
+
+        recognizer.start();
+      } catch (err) {
+        console.debug('[Ambient Speech Recognition Notice]:', err);
+      }
+    };
+
+    startRecognition();
+
+    return () => {
+      isTerminated = true;
+      if (recognizer) {
+        try {
+          recognizer.abort();
+        } catch {}
+      }
+    };
+  }, [activeConsultation, isRecording, isPaused, isMuted]);
+
+  const inferRole = (text: string): 'Doctor' | 'Patient' => {
+    const lower = text.toLowerCase().trim();
+    if (
+      /\?$/.test(lower) ||
+      /\b(how|what|are you|have you|did you|let me|prescribe|taking|doses|report|cardiography|regularly)\b/i.test(lower)
+    ) {
+      if (!/\b(i am|i'm|i feel|i missed|my stomach|my chest)\b/i.test(lower)) {
+        return 'Doctor';
+      }
+    }
+    if (
+      /\b(i feel|i've|i missed|my stomach|my chest|at night|lay flat|gasping|tighter|honest)\b/i.test(lower)
+    ) {
+      return 'Patient';
+    }
+    return liveTranscript.length % 2 === 0 ? 'Doctor' : 'Patient';
+  };
+
+  // Format timer as HH:MM:SS - e.g. "00:04:12" as in screenshot 1
   const formatStandardTimer = (totalSec: number) => {
     const hrs = Math.floor(totalSec / 3600);
     const mins = Math.floor((totalSec % 3600) / 60);
@@ -67,7 +165,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
     return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const handleStartConsultation = () => {
+  const handleStartConsultation = (startFresh = false) => {
     if (!consentConfirmed) {
       Alert.alert(
         'Consent Required',
@@ -75,7 +173,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
       );
       return;
     }
-    startConsultation(selectedPatient, visitReason);
+    startConsultation(selectedPatient, visitReason, startFresh);
   };
 
   const handleEndConsultationConfirm = async () => {
@@ -103,12 +201,22 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
     );
   };
 
-  const handleAddTurn = () => {
+  const handleStreamTurn = async () => {
     if (!newTurnText.trim()) return;
-    addTranscriptMessage(newTurnText.trim(), newTurnRole);
+    const textToStream = newTurnText.trim();
+    const roleToStream = newTurnRole;
     setNewTurnText('');
     setNewTurnRole((prev) => (prev === 'Doctor' ? 'Patient' : 'Doctor'));
-    setShowAddTurnInput(false);
+    await streamDialogueTurn(textToStream, roleToStream);
+  };
+
+  const handleRunFullStreamDemo = async () => {
+    setIsStreamingDemo(true);
+    try {
+      await streamFullReferenceConsultation();
+    } finally {
+      setIsStreamingDemo(false);
+    }
   };
 
   const getStatusText = () => {
@@ -420,7 +528,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
             {/* Start Consultation CTA Button */}
             <TouchableOpacity
               style={styles.startConsultationBtn}
-              onPress={handleStartConsultation}
+              onPress={() => handleStartConsultation()}
               activeOpacity={0.85}
             >
               <FontAwesome5
@@ -497,12 +605,28 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </View>
 
-              {/* 3D Doctor Character matching screenshot 1 */}
+              {/* 3D Doctor Character matching screenshot 1 & Web App Video */}
               <View style={styles.characterContainer}>
-                <Image
-                  source={require('../../../assets/doctor-character.png')}
-                  style={styles.characterImage}
-                />
+                {Platform.OS === 'web' && typeof document !== 'undefined' ? (
+                  React.createElement('video', {
+                    src: '/assets/avatar-video.mp4',
+                    autoPlay: true,
+                    loop: true,
+                    muted: true,
+                    playsInline: true,
+                    style: {
+                      width: 140,
+                      height: 140,
+                      objectFit: 'contain',
+                      pointerEvents: 'none',
+                    },
+                  })
+                ) : (
+                  <Image
+                    source={require('../../../assets/doctor-character.png')}
+                    style={styles.characterImage}
+                  />
+                )}
               </View>
 
               {/* Digital Timer matching screenshot 1: 00:04:12 */}
@@ -562,54 +686,118 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              {/* Quick Option to inject live spoken dialogue turn */}
-              <TouchableOpacity
-                style={styles.addTurnToggleBtn}
-                onPress={() => setShowAddTurnInput((prev) => !prev)}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="chatbubbles-outline" size={14} color="#2563EB" style={{ marginRight: 6 }} />
-                <Text style={styles.addTurnToggleText}>
-                  {showAddTurnInput ? 'Hide Speech Simulator' : '+ Add Speech Dialogue'}
-                </Text>
-              </TouchableOpacity>
+              {/* Real-time Voice Capture & Speech Toolbar */}
+              <View style={styles.liveSpeechToolbar}>
+                <View style={styles.liveSpeechStatusRow}>
+                  <View style={styles.liveAudioDot} />
+                  <Text style={styles.liveSpeechStatusText}>
+                    {isPaused
+                      ? 'AI Scribe Paused'
+                      : isMuted
+                      ? 'Microphone Muted'
+                      : 'Ambient Mic Active · Transcribing Spoken Dialogue'}
+                  </Text>
+                </View>
 
-              {/* Add Turn Input Box */}
-              {showAddTurnInput ? (
-                <View style={styles.addTurnBox}>
-                  <View style={styles.addTurnHeader}>
-                    <Text style={styles.addTurnTitle}>Live Ambient Voice Recording</Text>
-                    <TouchableOpacity
-                      style={styles.roleTogglePill}
-                      onPress={() =>
-                        setNewTurnRole((r) => (r === 'Doctor' ? 'Patient' : 'Doctor'))
-                      }
-                    >
-                      <Text style={styles.roleToggleText}>Speaker: {newTurnRole}</Text>
-                    </TouchableOpacity>
-                  </View>
+                {/* Quick Spoken Turn Presets */}
+                <View style={styles.quickSpokenPresetsRow}>
+                  <TouchableOpacity
+                    style={styles.quickSpeechPill}
+                    onPress={() => streamDialogueTurn('Welcome, Haylie. I reviewed your cardiography report. How has the chest tightness been?', 'Doctor')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.quickSpeechPillText}>+ Dr. Marleen (Inquiry)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.quickSpeechPill, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
+                    onPress={() => streamDialogueTurn("It's been tighter than usual, especially at night when I lay flat. I feel like I'm gasping for air.", 'Patient')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.quickSpeechPillText, { color: '#2563EB' }]}>+ Haylie (Symptoms)</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.quickSpokenPresetsRow}>
+                  <TouchableOpacity
+                    style={styles.quickSpeechPill}
+                    onPress={() => streamDialogueTurn('Are you taking the prescribed Digoxin regularly? Any skipped doses?', 'Doctor')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.quickSpeechPillText}>+ Dr. Marleen (Digoxin)</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.quickSpeechPill, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
+                    onPress={() => streamDialogueTurn('I missed a couple of doses last week because of my stomach upset, to be honest.', 'Patient')}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.quickSpeechPillText, { color: '#2563EB' }]}>+ Haylie (Adherence)</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Stream Full Consultation Button */}
+                <TouchableOpacity
+                  style={styles.streamFullConsultationBtn}
+                  onPress={handleRunFullStreamDemo}
+                  disabled={isStreamingDemo}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="play-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.streamFullConsultationBtnText}>
+                    {isStreamingDemo ? 'Transcribing Real-time Conversation...' : '▶ Stream Full Live Consultation (ChatGPT Real-time)'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Custom Spoken Dialogue Dictation Input */}
+                <View style={styles.dictationRow}>
+                  <TouchableOpacity
+                    style={styles.roleToggleMiniBtn}
+                    onPress={() => setNewTurnRole((r) => (r === 'Doctor' ? 'Patient' : 'Doctor'))}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.roleToggleMiniText}>{newTurnRole}</Text>
+                  </TouchableOpacity>
+
                   <TextInput
-                    style={styles.turnTextInput}
-                    placeholder={`Enter live transcribed speech from ${newTurnRole}...`}
+                    style={styles.dictationInput}
+                    placeholder={`Speak or enter live dialogue for ${newTurnRole}...`}
                     placeholderTextColor="#94A3B8"
                     value={newTurnText}
                     onChangeText={setNewTurnText}
-                    multiline
                   />
-                  <TouchableOpacity style={styles.insertTurnBtn} onPress={handleAddTurn}>
-                    <Text style={styles.insertTurnBtnText}>Record Turn & Sync to Transcript</Text>
+
+                  <TouchableOpacity
+                    style={styles.dictationSendBtn}
+                    onPress={handleStreamTurn}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="send" size={16} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
-              ) : null}
+              </View>
             </View>
 
-            {/* Card 3: Live Transcript Card matching screenshot 2 */}
+            {/* Card 3: Live Transcript Card matching screenshot 2 & ChatGPT Real-time streaming */}
             <View style={styles.cardContainer}>
-              <Text style={styles.cardMainHeading}>Live Transcript</Text>
+              <View style={styles.transcriptCardHeader}>
+                <Text style={styles.cardMainHeading}>Live Transcript</Text>
+                {isRecording && !isPaused && !isMuted ? (
+                  <View style={styles.liveIndicatorBadge}>
+                    <View style={styles.livePulseDot} />
+                    <Text style={styles.liveIndicatorText}>LIVE</Text>
+                  </View>
+                ) : null}
+              </View>
 
+              {/* Confirmed Spoken Dialogue Turns */}
               {liveTranscript.map((turn, index) => {
                 const isDoc = turn.speaker === 'Doctor';
-                const speakerName = isDoc ? 'Dr. Marleen' : 'Haylie Saris';
+                const speakerName = isDoc
+                  ? 'Dr. Marleen'
+                  : currentPatient.firstName
+                  ? `${currentPatient.firstName} ${currentPatient.lastName}`
+                  : 'Haylie Saris';
 
                 return (
                   <View key={turn.id || index} style={styles.transcriptTurnBlock}>
@@ -620,6 +808,40 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 );
               })}
+
+              {/* Real-time Streaming Transcript (ChatGPT word-by-word streaming animation with blinking cursor) */}
+              {partialTranscript && partialTranscript.text ? (
+                <View style={[styles.transcriptTurnBlock, styles.streamingTurnBlock]}>
+                  <View style={styles.streamingSpeakerRow}>
+                    <Text style={styles.transcriptSpeakerName}>
+                      {partialTranscript.speaker === 'Doctor'
+                        ? 'Dr. Marleen'
+                        : currentPatient.firstName
+                        ? `${currentPatient.firstName} ${currentPatient.lastName}`
+                        : 'Haylie Saris'}
+                    </Text>
+                    <View style={styles.streamingTag}>
+                      <View style={styles.livePulseDot} />
+                      <Text style={styles.streamingTagText}>transcribing live...</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.transcriptSpeechText}>
+                    {partialTranscript.text}
+                    <Text style={styles.streamingCursor}> ▋</Text>
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Listening State when transcript is empty */}
+              {liveTranscript.length === 0 && !partialTranscript ? (
+                <View style={styles.emptyTranscriptBlock}>
+                  <Ionicons name="mic-outline" size={26} color="#2563EB" style={{ marginBottom: 6 }} />
+                  <Text style={styles.emptyTranscriptTitle}>AI Scribe is listening to room conversation</Text>
+                  <Text style={styles.emptyTranscriptSubtitle}>
+                    Speak into your microphone or tap dialogue to transcribe in real time.
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             {/* Card 4: AI Assistant Insights Card matching screenshot 3 */}
@@ -1249,76 +1471,134 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  /* Add Turn Trigger */
-  addTurnToggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: '#EFF6FF',
-  },
-  addTurnToggleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2563EB',
-  },
-  addTurnBox: {
+  /* Real-time Voice Capture & Speech Toolbar */
+  liveSpeechToolbar: {
     width: '100%',
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 12,
-    marginTop: 12,
+    marginTop: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  addTurnHeader: {
+  liveSpeechStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  liveAudioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2563EB',
+    marginRight: 6,
+  },
+  liveSpeechStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  quickSpokenPresetsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  quickSpeechPill: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickSpeechPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  streamFullConsultationBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  streamFullConsultationBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  dictationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  roleToggleMiniBtn: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  roleToggleMiniText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  dictationInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    fontSize: 12.5,
+    color: '#0F172A',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  dictationSendBtn: {
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Card 3: Live Transcript Card matching screenshot 2 */
+  transcriptCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  addTurnTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  roleTogglePill: {
-    backgroundColor: '#EFF6FF',
+  liveIndicatorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
-  },
-  roleToggleText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  turnTextInput: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 8,
-    padding: 8,
-    fontSize: 13,
-    color: '#0F172A',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    minHeight: 44,
-    marginBottom: 8,
   },
-  insertTurnBtn: {
-    backgroundColor: '#2563EB',
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
+  liveIndicatorText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    color: '#DC2626',
+    marginLeft: 4,
   },
-  insertTurnBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '700',
+  livePulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#DC2626',
   },
-
-  /* Card 3: Live Transcript Card matching screenshot 2 */
   transcriptTurnBlock: {
     marginBottom: 16,
   },
@@ -1333,6 +1613,55 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     lineHeight: 22,
     fontWeight: '400',
+  },
+  streamingTurnBlock: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2563EB',
+  },
+  streamingSpeakerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  streamingTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  streamingTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2563EB',
+    marginLeft: 4,
+  },
+  streamingCursor: {
+    color: '#2563EB',
+    fontWeight: '800',
+  },
+  emptyTranscriptBlock: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  emptyTranscriptTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptyTranscriptSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
   },
 
   /* Card 4: AI Assistant Insights Card matching screenshot 3 */

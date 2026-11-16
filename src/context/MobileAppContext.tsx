@@ -92,21 +92,27 @@ interface MobileAppContextType {
   consultationSeconds: number;
   liveTranscript: TranscriptMessage[];
   liveInsights: AIInsight[];
+  partialTranscript: { speaker: 'Doctor' | 'Patient'; text: string } | null;
   isProcessingNote: boolean;
   selectedLanguage: string;
   backendOnline: boolean;
   setSelectedLanguage: (lang: string) => void;
+  setPartialTranscript: (partial: { speaker: 'Doctor' | 'Patient'; text: string } | null) => void;
+  setLiveTranscript: React.Dispatch<React.SetStateAction<TranscriptMessage[]>>;
+  setLiveInsights: React.Dispatch<React.SetStateAction<AIInsight[]>>;
   loginAsUser: (user: AuthUser, password?: string) => Promise<AuthUser>;
   loginWithCredentials: (email: string, password?: string) => Promise<AuthUser>;
   logout: () => void;
   selectPatient: (patient: Patient) => void;
-  startConsultation: (patient?: Patient, reason?: string) => void;
+  startConsultation: (patient?: Patient, reason?: string, startFresh?: boolean) => void;
   cancelConsultation: () => void;
   toggleRecording: () => void;
   togglePause: () => void;
   toggleMute: () => void;
   endConsultation: () => Promise<ConsultationSession>;
   addTranscriptMessage: (text: string, speaker?: 'Doctor' | 'Patient') => void;
+  streamDialogueTurn: (text: string, speaker?: 'Doctor' | 'Patient') => Promise<void>;
+  streamFullReferenceConsultation: () => Promise<void>;
   addPatient: (patient: Patient) => void;
   bookAppointment: (apt: Appointment) => void;
   approveNote: (consultationId: string) => Promise<void>;
@@ -130,6 +136,10 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [consultationSeconds, setConsultationSeconds] = useState<number>(0);
   const [liveTranscript, setLiveTranscript] = useState<TranscriptMessage[]>(INITIAL_LIVE_TRANSCRIPT);
   const [liveInsights, setLiveInsights] = useState<AIInsight[]>(INITIAL_LIVE_INSIGHTS);
+  const [partialTranscript, setPartialTranscript] = useState<{
+    speaker: 'Doctor' | 'Patient';
+    text: string;
+  } | null>(null);
   const [isProcessingNote, setIsProcessingNote] = useState<boolean>(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
   const [backendOnline, setBackendOnline] = useState<boolean>(true);
@@ -255,11 +265,14 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSelectedPatient(patient);
   };
 
-  const startConsultation = (patient?: Patient, reason?: string) => {
+  const startConsultation = (patient?: Patient, reason?: string, startFresh = false) => {
     const targetPatient = patient || selectedPatient;
-    const presentation = reason || targetPatient.condition || 'Chest tightness & dyspnea';
+    const presentation = reason || targetPatient.condition || 'Chronic chest tightness and increased nocturnal dyspnea.';
     setSelectedPatient(targetPatient);
     const newSessionId = `cons-${Date.now()}`;
+    const initialTurns = startFresh ? [] : INITIAL_LIVE_TRANSCRIPT;
+    const initialIns = startFresh ? [] : INITIAL_LIVE_INSIGHTS;
+
     const newSession: ConsultationSession = {
       id: newSessionId,
       patient: targetPatient,
@@ -269,13 +282,14 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       durationSeconds: 0,
       reasonForVisit: presentation,
       status: 'in_progress',
-      transcript: INITIAL_LIVE_TRANSCRIPT,
-      insights: [],
+      transcript: initialTurns,
+      insights: initialIns,
     };
     setActiveConsultation(newSession);
-    setLiveTranscript(INITIAL_LIVE_TRANSCRIPT);
-    setLiveInsights(INITIAL_LIVE_INSIGHTS);
-    setConsultationSeconds(252);
+    setLiveTranscript(initialTurns);
+    setLiveInsights(initialIns);
+    setPartialTranscript(null);
+    setConsultationSeconds(startFresh ? 0 : 252);
     setIsRecording(true);
     setIsPaused(false);
     setIsMuted(false);
@@ -294,6 +308,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsRecording(false);
     setIsPaused(false);
     setActiveConsultation(null);
+    setPartialTranscript(null);
     setConsultationSeconds(0);
   };
 
@@ -309,43 +324,138 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsMuted((prev) => !prev);
   };
 
+  const inferSpeakerFromText = (text: string, currentTurnsCount: number): 'Doctor' | 'Patient' => {
+    const lower = text.toLowerCase().trim();
+    // Doctor inquiry patterns
+    if (
+      /\?$/.test(lower) ||
+      /\b(how|what|are you|have you|did you|let me|prescribe|taking|doses|report|cardiography|medication|stethoscope)\b/i.test(lower)
+    ) {
+      if (!/\b(i am|i'm|i feel|i missed|my chest|my stomach|i have)\b/i.test(lower)) {
+        return 'Doctor';
+      }
+    }
+    // Patient symptom / complaint / answer patterns
+    if (
+      /\b(i feel|i've|i missed|my stomach|my chest|at night|lay flat|gasping|tighter|it's been|honest|yes|no)\b/i.test(lower)
+    ) {
+      return 'Patient';
+    }
+    return currentTurnsCount % 2 === 0 ? 'Doctor' : 'Patient';
+  };
+
   const addTranscriptMessage = (text: string, speaker?: 'Doctor' | 'Patient') => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
     const now = new Date();
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const assignedSpeaker = speaker || (liveTranscript.length % 2 === 0 ? 'Doctor' : 'Patient');
+    const assignedSpeaker = speaker || inferSpeakerFromText(trimmed, liveTranscript.length);
+
     const newMsg: TranscriptMessage = {
       id: `turn-${Date.now()}-${liveTranscript.length}`,
-      text: text.trim(),
-      originalText: text.trim(),
+      text: trimmed,
+      originalText: trimmed,
       speaker: assignedSpeaker,
       speakerRole: assignedSpeaker,
       timestamp: timeStr,
       isFinal: true,
       createdAt: now.toISOString(),
     };
+
     setLiveTranscript((prev) => [...prev, newMsg]);
 
-    const lower = text.toLowerCase();
+    // Real-time Clinical Insights Detection matching backend engine
+    const lower = trimmed.toLowerCase();
+
+    // 1. Medication Adherence Warning (Digoxin discontinued / stomach upset / skipped doses)
     if (
-      lower.includes('cough') ||
-      lower.includes('fever') ||
-      lower.includes('pain') ||
-      lower.includes('shortness of breath') ||
-      lower.includes('chest tightness')
+      lower.includes('digoxin') ||
+      lower.includes('missed') ||
+      lower.includes('stomach upset') ||
+      lower.includes('skipped') ||
+      lower.includes('stop taking')
     ) {
-      const insightId = `ins-${Date.now()}`;
-      const insight: AIInsight = {
-        id: insightId,
-        category: 'symptom',
-        title: lower.includes('chest')
-          ? 'Reported Symptom: Chest Tightness'
-          : lower.includes('breath')
-          ? 'Reported Symptom: Nocturnal Dyspnea'
-          : 'Reported Symptom: Cardiac Alert',
-        detail: `Verified medical entity matched from speech: "${text.slice(0, 45)}..."`,
-        badge: 'Live Matched',
+      const adherenceInsight: AIInsight = {
+        id: `ins-med-${Date.now()}`,
+        category: 'medication',
+        title: 'MEDICATION ADHERENCE WARNING',
+        detail: 'Digoxin therapy discontinued briefly; potential trigger for ventricular overload.',
+        badge: 'Medication Alert',
       };
-      setLiveInsights((prev) => [insight, ...prev]);
+      setLiveInsights((prev) => {
+        if (prev.some((p) => p.title === adherenceInsight.title)) return prev;
+        return [adherenceInsight, ...prev];
+      });
+    }
+
+    // 2. Pathology Identified (Orthopnea / Paroxysmal Nocturnal Dyspnea / Chest tightness / gasping for air)
+    if (
+      lower.includes('tight') ||
+      lower.includes('lay flat') ||
+      lower.includes('gasping') ||
+      lower.includes('dyspnea') ||
+      lower.includes('orthopnea') ||
+      lower.includes('chest')
+    ) {
+      const pathologyInsight: AIInsight = {
+        id: `ins-path-${Date.now()}`,
+        category: 'pathology',
+        title: 'PATHOLOGY IDENTIFIED',
+        detail: 'Nocturnal Orthopnea / Paroxysmal Nocturnal Dyspnea. Echo updates recommended.',
+        badge: 'Clinical Pathology',
+      };
+      setLiveInsights((prev) => {
+        if (prev.some((p) => p.title === pathologyInsight.title)) return prev;
+        return [...prev, pathologyInsight];
+      });
+    }
+
+    // Asynchronously sync turn to backend database if active session exists
+    if (activeConsultation?.id) {
+      api.consultations
+        .addTranscript(activeConsultation.id, {
+          speaker: assignedSpeaker,
+          text: trimmed,
+          timestamp: timeStr,
+        })
+        .catch((e) => console.debug('[MobileAppContext] Backend transcript sync notice:', e));
+    }
+  };
+
+  const streamDialogueTurn = async (
+    text: string,
+    speaker?: 'Doctor' | 'Patient'
+  ): Promise<void> => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const assignedSpeaker = speaker || inferSpeakerFromText(trimmed, liveTranscript.length);
+    const words = trimmed.split(' ');
+    let currentStreamed = '';
+
+    for (let i = 0; i < words.length; i++) {
+      currentStreamed += (i === 0 ? '' : ' ') + words[i];
+      setPartialTranscript({ speaker: assignedSpeaker, text: currentStreamed });
+      // Short realistic delay between words to simulate real-time ChatGPT streaming speech capture
+      await new Promise((resolve) => setTimeout(resolve, 45));
+    }
+
+    setPartialTranscript(null);
+    addTranscriptMessage(trimmed, assignedSpeaker);
+  };
+
+  const streamFullReferenceConsultation = async (): Promise<void> => {
+    setLiveTranscript([]);
+    setLiveInsights([]);
+    setConsultationSeconds(0);
+    setIsRecording(true);
+    setIsPaused(false);
+    setIsMuted(false);
+
+    for (const turn of INITIAL_LIVE_TRANSCRIPT) {
+      await streamDialogueTurn(turn.text, turn.speaker as 'Doctor' | 'Patient');
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
   };
 
@@ -481,10 +591,14 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         consultationSeconds,
         liveTranscript,
         liveInsights,
+        partialTranscript,
         isProcessingNote,
         selectedLanguage,
         backendOnline,
         setSelectedLanguage,
+        setPartialTranscript,
+        setLiveTranscript,
+        setLiveInsights,
         loginAsUser,
         loginWithCredentials,
         logout,
@@ -496,6 +610,8 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toggleMute,
         endConsultation,
         addTranscriptMessage,
+        streamDialogueTurn,
+        streamFullReferenceConsultation,
         addPatient,
         bookAppointment,
         approveNote,
