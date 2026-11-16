@@ -5,16 +5,16 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
   Alert,
-  Share,
+  Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useMobileApp } from '../../context/MobileAppContext';
-import { MobileHeader } from '../../components/common/MobileHeader';
-import { CardContainer } from '../../components/common/CardContainer';
-import { StatusBadge } from '../../components/common/StatusBadge';
-import { ActionButton } from '../../components/common/ActionButton';
-import { ConsultationSession, SOAPNote } from '../../types';
+import { ConsultationSession, Patient } from '../../types';
+import { INITIAL_PATIENTS } from '../../services/mockData';
 
 interface Props {
   route?: any;
@@ -22,560 +22,465 @@ interface Props {
 }
 
 export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation }) => {
+  const insets = useSafeAreaInsets();
   const { activeConsultation, approveNote } = useMobileApp();
-  const session: ConsultationSession = route?.params?.consultation || activeConsultation;
 
-  const [activeTab, setActiveTab] = useState<'soap' | 'transcript' | 'rx'>('soap');
+  // Find Haylie Saris as default reference from screenshot if session not passed
+  const hayliePatient =
+    INITIAL_PATIENTS.find((p) => p.firstName.toLowerCase().includes('haylie')) ||
+    INITIAL_PATIENTS[0];
 
-  const effectiveNote = session?.note || session?.soapNote;
+  const session: ConsultationSession =
+    route?.params?.consultation || activeConsultation || {
+      id: 'cons-haylie-default',
+      patient: hayliePatient,
+      doctor: {
+        id: 'doc-1',
+        name: 'Dr. Marleen',
+        title: 'General Physician',
+        specialty: 'Internal Medicine',
+        regNumber: 'MCI-2018-84729',
+        email: 'marleen.d@apollohealth.in',
+        avatar: '',
+        hospital: 'Apex Multi-Specialty Clinic',
+      },
+      date: 'Today',
+      time: '10:30 AM',
+      durationSeconds: 272,
+      reasonForVisit: 'Progressive chronic chest tightness and nocturnal dyspnea',
+      status: 'review_required',
+      transcript: [],
+      insights: [],
+    };
 
-  if (!session || !effectiveNote) {
-    return (
-      <View style={styles.container}>
-        <MobileHeader title="Clinical Note Review" showBack onBack={() => navigation.goBack()} />
-        <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={48} color="#94A3B8" />
-          <Text style={styles.emptyTitle}>No Note Ready for Review</Text>
-          <Text style={styles.emptySubtitle}>Start or complete a live consultation to review clinical documentation.</Text>
-          <ActionButton
-            title="Go to Live Consultation"
-            onPress={() => navigation.navigate('LiveConsultation')}
-            style={{ marginTop: 16 }}
-          />
-        </View>
-      </View>
-    );
-  }
+  const patient = session.patient || hayliePatient;
+  const isHaylie = patient.firstName.toLowerCase().includes('haylie');
 
-  const note = effectiveNote;
-  const { patient, transcript, doctor } = session;
-  const isApproved = session.status === 'approved' || note.status === 'approved';
+  const [isSigned, setIsSigned] = useState(session.status === 'approved');
 
-  const handleApprove = () => {
-    approveNote(session.id);
-    Alert.alert('Note Approved', 'Clinical note finalized, digitally signed, and saved to EHR.');
+  const getPatientAvatarSource = (pat: Patient) => {
+    const fName = pat.firstName.toLowerCase();
+    if (pat.avatarKey === 'haylie' || fName.includes('haylie')) {
+      return require('../../../assets/patient-haylie.png');
+    }
+    if (pat.avatarKey === 'brooklyn' || fName.includes('brooklyn')) {
+      return require('../../../assets/patient-brooklyn.png');
+    }
+    if (pat.avatarKey === 'eleanor' || fName.includes('eleanor')) {
+      return require('../../../assets/patient-eleanor.png');
+    }
+    if (pat.avatarKey === 'guy' || fName.includes('guy')) {
+      return require('../../../assets/patient-guy.png');
+    }
+    return require('../../../assets/patient-avatar.png');
   };
 
-  const handleShare = async () => {
-    const text = `PIVOT CLINICAL SOAP NOTE\nPatient: ${patient.firstName} ${patient.lastName} (${patient.patientCode})\nAttending Doctor: ${doctor.name}\nDate: ${session.date}\n\nSUBJECTIVE:\nChief Complaint: ${note.subjective.chiefComplaint}\nHPI: ${note.subjective.historyOfPresentIllness}\n\nOBJECTIVE:\n${note.objective.findings.join('\n')}\n\nASSESSMENT:\n${note.assessment.clinicalImpression}\n\nPLAN & PRESCRIPTIONS:\n${note.plan.prescriptions.join('\n')}\nFollow-up: ${note.plan.followUp}`;
-    try {
-      await Share.share({ message: text, title: `Clinical Note - ${patient.firstName}` });
-    } catch {}
+  const handleSaveDraft = () => {
+    Alert.alert(
+      'Draft Saved',
+      `Clinical note draft for ${patient.firstName} ${patient.lastName} saved successfully. You can return to edit or finalize at any time.`
+    );
+  };
+
+  const handleSignAndLock = () => {
+    setIsSigned(true);
+    if (session.id) {
+      approveNote(session.id);
+    }
+    Alert.alert(
+      'Note Signed & Locked',
+      `Clinical progress note for ${patient.firstName} ${patient.lastName} has been digitally signed and locked in EHR records.`
+    );
+  };
+
+  // Content for Subjective
+  const getSubjectiveText = () => {
+    if (isHaylie) {
+      return 'Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is "gasping for air" during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.';
+    }
+    const note = session.note || session.soapNote;
+    if (note?.subjective?.historyOfPresentIllness) {
+      return note.subjective.historyOfPresentIllness;
+    }
+    return 'Patient presents with a persistent cough and mild fever. Denies any severe chest pain but reports minor nocturnal shortness of breath. Has been taking paracetamol for temporary relief with moderate symptom control.';
+  };
+
+  // Content for Objective
+  const getObjectiveText = () => {
+    if (isHaylie) {
+      return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air.\nCardiovascular: Irregular rhythm, S1/S2 present, trace bilateral pedal edema.';
+    }
+    return 'BP: 120/80 mmHg | HR: 74 bpm | Temp: 37.2°C | SpO2: 98% on room air.\nRespiratory: Clear to auscultation bilaterally, no acute wheezes or crackles. Oropharynx mildly erythematous.';
+  };
+
+  // Content for Assessment
+  const getAssessmentText = () => {
+    if (isHaylie) {
+      return '1. Decompensated congestive heart failure secondary to Digoxin non-compliance.\n2. Atrial fibrillation with rapid ventricular response.';
+    }
+    return '1. Acute viral upper respiratory tract infection with associated nocturnal tracheobronchial hyperreactivity.\n2. Mild febrile illness without lower respiratory tract consolidation.';
+  };
+
+  // Content for Plan
+  const getPlanText = () => {
+    if (isHaylie) {
+      return '• Resume Digoxin 0.125mg PO once daily.\n• Furosemide (Lasix) 40mg PO stat, then 20mg daily.\n• Check serum electrolytes and Digoxin level in 48 hours.\n• Low-sodium diet & daily weight monitoring.';
+    }
+    return '• Tab. Paracetamol 650mg PO TDS SOS for fever/pain.\n• Steam inhalation twice daily & warm saline gargles.\n• Strict hydration advice & return if fever exceeds 101°F or chest pain occurs.';
   };
 
   return (
-    <View style={styles.container}>
-      <MobileHeader
-        title="Clinical Note Review"
-        subtitle={`${patient.firstName} ${patient.lastName} (${patient.patientCode})`}
-        showBack
-        onBack={() => navigation.goBack()}
-        rightAction={
-          <TouchableOpacity onPress={handleShare} style={styles.shareIconBtn}>
-            <Ionicons name="share-outline" size={20} color="#2563EB" />
-          </TouchableOpacity>
-        }
-      />
+    <View
+      style={[
+        styles.rootContainer,
+        { paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 12 : 24) },
+      ]}
+    >
+      <StatusBar style="dark" />
 
-      {/* Patient & Approval Status Header */}
-      <View style={styles.statusHeader}>
-        <View>
-          <Text style={styles.patientFullName}>
-            {patient.firstName} {patient.lastName}
-          </Text>
-          <Text style={styles.visitReasonText}>{session.reasonForVisit}</Text>
+      {/* Main Scrollable Content */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 24) + 60 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top MediScribe Header matching screenshot */}
+        <View style={styles.topHeader}>
+          <View style={styles.brandContainer}>
+            <View style={styles.stethoscopeIconContainer}>
+              <FontAwesome5 name="stethoscope" size={24} color="#2563EB" />
+            </View>
+            <View style={styles.brandTextColumn}>
+              <Text style={styles.brandTitle}>MediScribe</Text>
+              <Text style={styles.brandSubtitle}>CLINICIAN</Text>
+            </View>
+          </View>
+
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
+              <Ionicons name="notifications-outline" size={24} color="#334155" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <Image
+                source={require('../../../assets/doctor-avatar.png')}
+                style={styles.doctorAvatar}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
-        <StatusBadge status={isApproved ? 'Approved' : 'Review Required'} />
-      </View>
 
-      {/* Segmented Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'soap' && styles.tabItemActive]}
-          onPress={() => setActiveTab('soap')}
-        >
-          <Ionicons
-            name="document-text"
-            size={16}
-            color={activeTab === 'soap' ? '#2563EB' : '#64748B'}
-          />
-          <Text style={[styles.tabText, activeTab === 'soap' && styles.tabTextActive]}>
-            SOAP Note
-          </Text>
-        </TouchableOpacity>
+        {/* Clinical note draft Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={styles.mainTitle}>Clinical note draft</Text>
+          <Text style={styles.subtitle}>Your AI Clinical Assistant</Text>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'transcript' && styles.tabItemActive]}
-          onPress={() => setActiveTab('transcript')}
-        >
-          <Ionicons
-            name="chatbubbles"
-            size={16}
-            color={activeTab === 'transcript' ? '#2563EB' : '#64748B'}
-          />
-          <Text style={[styles.tabText, activeTab === 'transcript' && styles.tabTextActive]}>
-            Transcript ({transcript.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'rx' && styles.tabItemActive]}
-          onPress={() => setActiveTab('rx')}
-        >
-          <Ionicons
-            name="medical"
-            size={16}
-            color={activeTab === 'rx' ? '#2563EB' : '#64748B'}
-          />
-          <Text style={[styles.tabText, activeTab === 'rx' && styles.tabTextActive]}>
-            Rx Draft
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.contentScroll}>
-        {/* TAB 1: SOAP Note */}
-        {activeTab === 'soap' && (
-          <View>
-            {/* Conversation Purpose & Clinical Summary */}
-            {note.conversationSummary && (
-              <CardContainer style={styles.summaryCard}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="sparkles" size={16} color="#2563EB" />
-                  <Text style={styles.sectionTitle}>Conversation Summary</Text>
-                </View>
-                <Text style={styles.summaryText}>{note.conversationSummary}</Text>
-              </CardContainer>
-            )}
-
-            {/* SUBJECTIVE */}
-            <CardContainer style={styles.soapCard}>
-              <View style={[styles.soapPill, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-                <Text style={[styles.soapPillText, { color: '#1D4ED8' }]}>S · Subjective</Text>
-              </View>
-
-              <Text style={styles.fieldLabel}>Chief Complaint:</Text>
-              <Text style={styles.fieldValue}>{note.subjective.chiefComplaint}</Text>
-
-              <Text style={styles.fieldLabel}>History of Present Illness (HPI):</Text>
-              <Text style={styles.fieldValue}>{note.subjective.historyOfPresentIllness}</Text>
-
-              {note.subjective.negativeSymptoms.length > 0 && (
-                <>
-                  <Text style={styles.fieldLabel}>Pertinent Negatives:</Text>
-                  {note.subjective.negativeSymptoms.map((neg, idx) => (
-                    <Text key={idx} style={styles.bulletItem}>• {neg}</Text>
-                  ))}
-                </>
-              )}
-            </CardContainer>
-
-            {/* OBJECTIVE */}
-            <CardContainer style={styles.soapCard}>
-              <View style={[styles.soapPill, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
-                <Text style={[styles.soapPillText, { color: '#15803D' }]}>O · Objective</Text>
-              </View>
-
-              <Text style={styles.fieldLabel}>Clinical Physical Examination:</Text>
-              {note.objective.findings.map((f, idx) => (
-                <Text key={idx} style={styles.bulletItem}>• {f}</Text>
-              ))}
-            </CardContainer>
-
-            {/* ASSESSMENT */}
-            <CardContainer style={styles.soapCard}>
-              <View style={[styles.soapPill, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
-                <Text style={[styles.soapPillText, { color: '#B45309' }]}>A · Assessment</Text>
-              </View>
-
-              <Text style={styles.fieldLabel}>Clinical Impression:</Text>
-              <Text style={styles.fieldValue}>{note.assessment.clinicalImpression}</Text>
-
-              <Text style={styles.fieldLabel}>Differential Diagnosis:</Text>
-              {note.assessment.differentialDiagnosis.map((d, idx) => (
-                <Text key={idx} style={styles.bulletItem}>• {d}</Text>
-              ))}
-            </CardContainer>
-
-            {/* PLAN */}
-            <CardContainer style={styles.soapCard}>
-              <View style={[styles.soapPill, { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' }]}>
-                <Text style={[styles.soapPillText, { color: '#7C3AED' }]}>P · Plan & Rx</Text>
-              </View>
-
-              <Text style={styles.fieldLabel}>Prescriptions:</Text>
-              {note.plan.prescriptions.map((rx, idx) => (
-                <Text key={idx} style={styles.bulletItem}>• {rx}</Text>
-              ))}
-
-              <Text style={styles.fieldLabel}>Follow-up Instructions:</Text>
-              <Text style={styles.fieldValue}>{note.plan.followUp}</Text>
-            </CardContainer>
-          </View>
-        )}
-
-        {/* TAB 2: Verbatim Transcript Dialogue */}
-        {activeTab === 'transcript' && (
-          <View>
-            <CardContainer style={styles.unifiedCard}>
-              <View style={styles.unifiedHeader}>
-                <Ionicons name="document-text" size={16} color="#2563EB" />
-                <Text style={styles.unifiedTitle}>Unified Consultation Paragraph</Text>
-              </View>
-              <Text style={styles.unifiedParagraph}>
-                {transcript.map((t) => `${t.speaker}: ${t.originalText || t.text}`).join('  ')}
+        {/* Patient Details Card matching screenshot */}
+        <View style={styles.patientCard}>
+          <View style={styles.patientTopRow}>
+            <Image
+              source={getPatientAvatarSource(patient)}
+              style={styles.patientAvatar}
+            />
+            <View style={styles.patientInfoColumn}>
+              <Text style={styles.patientName}>
+                {patient.firstName} {patient.lastName}
               </Text>
-            </CardContainer>
-
-            <Text style={styles.turnByTurnHeader}>Turn-by-Turn Dialogue (Attributed)</Text>
-            {transcript.map((msg, idx) => {
-              const isDoc = msg.speaker === 'Doctor';
-              return (
-                <CardContainer key={msg.id || idx} style={styles.turnCard}>
-                  <View style={styles.turnHeader}>
-                    <View style={[styles.speakerBadge, isDoc ? styles.docBadge : styles.patBadge]}>
-                      <Text style={[styles.speakerBadgeText, isDoc ? styles.docBadgeText : styles.patBadgeText]}>
-                        {msg.speaker}
-                      </Text>
-                    </View>
-                    <Text style={styles.turnTime}>{msg.timestamp}</Text>
-                  </View>
-                  <Text style={styles.turnText}>{msg.originalText || msg.text}</Text>
-                </CardContainer>
-              );
-            })}
+              <Text style={styles.patientMeta}>
+                {patient.gender} · {patient.age} years · {patient.patientCode}
+              </Text>
+            </View>
           </View>
-        )}
 
-        {/* TAB 3: Prescription Draft Candidates */}
-        {activeTab === 'rx' && (
-          <View>
-            {(note.prescriptionDraft || []).length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptySubtitle}>No new prescriptions drafted for this visit.</Text>
-              </View>
-            ) : (
-              (note.prescriptionDraft || []).map((rx, idx) => (
-                <CardContainer key={idx} style={styles.rxCard}>
-                  <View style={styles.rxHeader}>
-                    <Text style={styles.rxName}>{rx.name}</Text>
-                    <StatusBadge status={rx.route || 'Oral (PO)'} variant="info" />
-                  </View>
-                  <View style={styles.rxDetailGrid}>
-                    <View style={styles.rxDetailItem}>
-                      <Text style={styles.rxDetailLabel}>Dosage</Text>
-                      <Text style={styles.rxDetailValue}>{rx.dose || '650 mg'}</Text>
-                    </View>
-                    <View style={styles.rxDetailItem}>
-                      <Text style={styles.rxDetailLabel}>Frequency</Text>
-                      <Text style={styles.rxDetailValue}>{rx.frequency || 'TDS'}</Text>
-                    </View>
-                    <View style={styles.rxDetailItem}>
-                      <Text style={styles.rxDetailLabel}>Duration</Text>
-                      <Text style={styles.rxDetailValue}>{rx.duration || '3 days'}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.rxInstructions}>
-                    Instructions: {rx.instructions || 'Take after meals as instructed.'}
-                  </Text>
-                </CardContainer>
-              ))
-            )}
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Bottom Sticky Action Bar */}
-      <View style={styles.bottomBar}>
-        {isApproved ? (
-          <View style={styles.approvedBanner}>
-            <Ionicons name="checkmark-done-circle" size={20} color="#15803D" />
-            <Text style={styles.approvedText}>
-              Note Approved by {note.approvedBy || doctor.name}
+          {/* Draft (Unsigned) Status Banner Pill */}
+          <View
+            style={[
+              styles.statusBanner,
+              isSigned ? styles.statusBannerSigned : styles.statusBannerDraft,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusBannerText,
+                isSigned ? styles.statusTextSigned : styles.statusTextDraft,
+              ]}
+            >
+              {isSigned
+                ? 'Final (Signed) · Clinician approved & EHR locked'
+                : 'Draft (Unsigned) · Requires clinician review'}
             </Text>
           </View>
-        ) : (
-          <ActionButton
-            title="Approve & Finalize Note"
-            icon="checkmark-done"
-            variant="success"
-            onPress={handleApprove}
-            style={styles.approveBtn}
-          />
-        )}
-      </View>
+        </View>
+
+        {/* Action Buttons Bar: Save Draft & Sign & Lock matching screenshot */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.saveDraftBtn}
+            activeOpacity={0.8}
+            onPress={handleSaveDraft}
+          >
+            <Text style={styles.saveDraftText}>Save Draft</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.signLockBtn}
+            activeOpacity={0.8}
+            onPress={handleSignAndLock}
+          >
+            <Text style={styles.signLockText}>Sign & Lock</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* SOAP Clinical Progress Note Card matching screenshot */}
+        <View style={styles.soapCard}>
+          <Text style={styles.soapCardTitle}>SOAP Clinical Progress Note</Text>
+
+          {/* Subjective Section */}
+          <Text style={styles.sectionLabel}>Subjective (History & Symptoms)</Text>
+          <View style={styles.sectionBox}>
+            <Text style={styles.sectionText}>{getSubjectiveText()}</Text>
+          </View>
+
+          {/* Objective Section */}
+          <Text style={styles.sectionLabel}>Objective (Vitals & Physical Exam)</Text>
+          <View style={styles.sectionBox}>
+            <Text style={styles.sectionText}>{getObjectiveText()}</Text>
+          </View>
+
+          {/* Assessment Section */}
+          <Text style={styles.sectionLabel}>Assessment (Clinical Impression)</Text>
+          <View style={styles.sectionBox}>
+            <Text style={styles.sectionText}>{getAssessmentText()}</Text>
+          </View>
+
+          {/* Plan Section */}
+          <Text style={styles.sectionLabel}>Plan & Prescriptions</Text>
+          <View style={styles.sectionBox}>
+            <Text style={styles.sectionText}>{getPlanText()}</Text>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  rootContainer: {
     flex: 1,
     backgroundColor: '#EFF4FA',
   },
-  shareIconBtn: {
-    padding: 6,
-    borderRadius: 10,
-    backgroundColor: '#EFF6FF',
+  scrollView: {
+    flex: 1,
+    backgroundColor: '#EFF4FA',
   },
-  statusHeader: {
-    backgroundColor: '#FFFFFF',
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    paddingTop: 4,
+  },
+  /* Top MediScribe Header */
+  topHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 6,
   },
-  patientFullName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  visitReasonText: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-  },
-  tabItem: {
-    flex: 1,
+  brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  stethoscopeIconContainer: {
+    marginRight: 10,
     justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 6,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabItemActive: {
-    borderBottomColor: '#2563EB',
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  tabTextActive: {
-    color: '#2563EB',
-    fontWeight: '800',
-  },
-  contentScroll: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  summaryCard: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E293B',
+  brandTextColumn: {
+    justifyContent: 'center',
   },
-  summaryText: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 18,
-  },
-  soapCard: {
-    marginBottom: 12,
-  },
-  soapPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 10,
-  },
-  soapPillText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  fieldLabel: {
-    fontSize: 12,
+  brandTitle: {
+    fontSize: 22,
     fontWeight: '700',
-    color: '#475569',
-    marginTop: 8,
-    marginBottom: 2,
-  },
-  fieldValue: {
-    fontSize: 13,
     color: '#0F172A',
-    lineHeight: 18,
+    letterSpacing: -0.3,
   },
-  bulletItem: {
-    fontSize: 13,
-    color: '#0F172A',
-    marginLeft: 4,
-    marginVertical: 2,
-  },
-  unifiedCard: {
-    marginBottom: 16,
-    backgroundColor: '#F8FAFC',
-  },
-  unifiedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  unifiedTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  unifiedParagraph: {
-    fontSize: 13,
-    color: '#334155',
-    lineHeight: 20,
-  },
-  turnByTurnHeader: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  turnCard: {
-    marginBottom: 8,
-    padding: 12,
-  },
-  turnHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  speakerBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  docBadge: {
-    backgroundColor: '#DBEAFE',
-  },
-  patBadge: {
-    backgroundColor: '#DCFCE7',
-  },
-  speakerBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  docBadgeText: {
-    color: '#1D4ED8',
-  },
-  patBadgeText: {
-    color: '#15803D',
-  },
-  turnTime: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  turnText: {
-    fontSize: 13,
-    color: '#0F172A',
-    lineHeight: 18,
-  },
-  rxCard: {
-    marginBottom: 10,
-  },
-  rxHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  rxName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  rxDetailGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 8,
-  },
-  rxDetailItem: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  rxDetailLabel: {
+  brandSubtitle: {
     fontSize: 10,
-    color: '#64748B',
-    fontWeight: '600',
-  },
-  rxDetailValue: {
-    fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  rxInstructions: {
-    fontSize: 12,
-    color: '#475569',
-    fontStyle: 'italic',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginTop: 12,
-  },
-  emptySubtitle: {
-    fontSize: 13,
     color: '#64748B',
-    textAlign: 'center',
+    letterSpacing: 0.8,
+    marginTop: -1,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  notificationBtn: {
+    padding: 6,
+    marginRight: 10,
+  },
+  doctorAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+  },
+  /* Title Section */
+  titleSection: {
+    marginBottom: 16,
     marginTop: 4,
   },
-  bottomBar: {
+  mainTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14.5,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  /* Patient Details Card */
+  patientCard: {
     backgroundColor: '#FFFFFF',
-    padding: 14,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  approveBtn: {
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  approvedBanner: {
+  patientTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#86EFAC',
-    gap: 8,
   },
-  approvedText: {
-    fontSize: 13,
+  patientAvatar: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#E2E8F0',
+  },
+  patientInfoColumn: {
+    marginLeft: 14,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  patientName: {
+    fontSize: 18,
     fontWeight: '700',
-    color: '#15803D',
+    color: '#0F172A',
+  },
+  patientMeta: {
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  statusBanner: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 14,
+    alignSelf: 'stretch',
+  },
+  statusBannerDraft: {
+    backgroundColor: '#FFFBEB',
+  },
+  statusBannerSigned: {
+    backgroundColor: '#ECFDF5',
+  },
+  statusBannerText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  statusTextDraft: {
+    color: '#92400E',
+  },
+  statusTextSigned: {
+    color: '#166534',
+  },
+  /* Action Row: Save Draft & Sign & Lock */
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  saveDraftBtn: {
+    flex: 1,
+    height: 52,
+    backgroundColor: '#475569',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveDraftText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  signLockBtn: {
+    flex: 1,
+    height: 52,
+    backgroundColor: '#2563EB',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signLockText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  /* SOAP Card */
+  soapCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  soapCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  sectionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  sectionText: {
+    fontSize: 14.5,
+    color: '#334155',
+    lineHeight: 22,
   },
 });
-

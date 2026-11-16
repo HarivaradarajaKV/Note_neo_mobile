@@ -201,6 +201,26 @@ export const INITIAL_PATIENTS: Patient[] = [
     assignedDoctorName: 'Dr. Marleen',
     avatarKey: 'ramesh',
   },
+  {
+    id: 'pat-7',
+    patientCode: '#HS15922',
+    firstName: 'Haylie',
+    lastName: 'Saris',
+    age: 32,
+    gender: 'Female',
+    phone: '+1 (555) 678-9012',
+    email: 'haylie.saris@gmail.com',
+    address: 'Indiranagar, Bangalore, Karnataka',
+    allergies: ['Penicillin'],
+    existingMedications: ['Digoxin 0.125mg OD'],
+    medicalHistory: ['Chronic congestive heart failure', 'Atrial fibrillation'],
+    lastVisit: 'Today',
+    condition: 'Progressive chronic chest tightness and nocturnal dyspnea',
+    statusRisk: 'Under Risk',
+    dateAdded: 'Today',
+    assignedDoctorName: 'Dr. Marleen',
+    avatarKey: 'haylie',
+  },
 ];
 
 export const INITIAL_APPOINTMENTS: Appointment[] = [

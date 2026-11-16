@@ -57,6 +57,9 @@ export const PatientsScreen: React.FC<Props> = ({ navigation }) => {
     if (pat.avatarKey === 'guy' || fName.includes('guy')) {
       return require('../../../assets/patient-guy.png');
     }
+    if (pat.avatarKey === 'haylie' || fName.includes('haylie')) {
+      return require('../../../assets/patient-haylie.png');
+    }
     return require('../../../assets/patient-avatar.png');
   };
 
