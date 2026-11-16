@@ -19,6 +19,7 @@ import { TerminologyTrainingScreen } from '../screens/admin/TerminologyTrainingS
 import { PatientScheduleScreen } from '../screens/patient/PatientScheduleScreen';
 import { ClinicalSecurityScreen } from '../screens/settings/ClinicalSecurityScreen';
 import { NotificationsScreen } from '../screens/settings/NotificationsScreen';
+import { EhrIntegrationsScreen } from '../screens/settings/EhrIntegrationsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -56,6 +57,7 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="PatientSchedule" component={PatientScheduleScreen} />
       <Stack.Screen name="ClinicalSecurity" component={ClinicalSecurityScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="EhrIntegrations" component={EhrIntegrationsScreen} />
     </Stack.Navigator>
   );
 };

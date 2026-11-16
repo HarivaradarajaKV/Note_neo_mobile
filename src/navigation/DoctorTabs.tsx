@@ -12,6 +12,7 @@ import { ClinicalNoteReviewScreen } from '../screens/review/ClinicalNoteReviewSc
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { ClinicalSecurityScreen } from '../screens/settings/ClinicalSecurityScreen';
 import { NotificationsScreen } from '../screens/settings/NotificationsScreen';
+import { EhrIntegrationsScreen } from '../screens/settings/EhrIntegrationsScreen';
 
 const Tab = createBottomTabNavigator();
 const NotesStack = createNativeStackNavigator();
@@ -28,7 +29,8 @@ const NotesNavigator: React.FC = () => {
 
 const SettingsNavigator: React.FC = () => {
   return (
-    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Notifications">
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="EhrIntegrations">
+      <SettingsStack.Screen name="EhrIntegrations" component={EhrIntegrationsScreen} />
       <SettingsStack.Screen name="Notifications" component={NotificationsScreen} />
       <SettingsStack.Screen name="ClinicalSecurity" component={ClinicalSecurityScreen} />
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
