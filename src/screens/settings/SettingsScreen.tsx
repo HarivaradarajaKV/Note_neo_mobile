@@ -30,13 +30,28 @@ const ACCOUNT_SETTINGS_OPTIONS = [
 
 export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { logout } = useMobileApp();
+  const { logout, currentUser } = useMobileApp();
 
   // Practice Information Form State
   const [clinicName, setClinicName] = useState('Metro Heart & Vascular Institute');
   const [primaryAddress, setPrimaryAddress] = useState('100 Medical Plaza, Suite 400, Chicago IL');
   const [clinicPhone, setClinicPhone] = useState('+1 (312) 555-0143');
   const [workEmail, setWorkEmail] = useState('dr.marleen@metroheart.org');
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Log Out',
+      `Are you sure you want to log out of ${currentUser?.name || 'your clinician account'}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: logout,
+        },
+      ]
+    );
+  };
 
   const handleUploadPhoto = () => {
     Alert.alert(
@@ -168,13 +183,17 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.cardContainer}>
           <View style={styles.doctorRow}>
             <Image
-              source={require('../../../assets/doctor-avatar.png')}
+              source={
+                currentUser?.avatar && currentUser.avatar.startsWith('http')
+                  ? { uri: currentUser.avatar }
+                  : require('../../../assets/doctor-avatar.png')
+              }
               style={styles.profileAvatar}
             />
             <View style={styles.doctorMetaCol}>
-              <Text style={styles.doctorName}>Dr. Marleen</Text>
+              <Text style={styles.doctorName}>{currentUser?.name || 'Dr. Marleen'}</Text>
               <Text style={styles.doctorSub}>
-                General Physician · Cardiology Subspecialist
+                {currentUser?.specialty || currentUser?.roleTitle || 'General Physician · Cardiology Subspecialist'}
               </Text>
             </View>
           </View>
@@ -184,8 +203,10 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.verifiedBadgeText}>Verified & Active</Text>
           </View>
 
-          {/* NPI License */}
-          <Text style={styles.npiText}>NPI License: #194829140</Text>
+          {/* NPI / MCI License */}
+          <Text style={styles.npiText}>
+            {currentUser?.regNumber ? `MCI License: #${currentUser.regNumber}` : 'NPI License: #194829140'}
+          </Text>
 
           {/* Upload New Photo Button */}
           <TouchableOpacity
@@ -194,6 +215,16 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
             activeOpacity={0.85}
           >
             <Text style={styles.uploadPhotoBtnText}>Upload New Photo</Text>
+          </TouchableOpacity>
+
+          {/* Log Out Clinician Account Button */}
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={handleLogout}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.logoutBtnText}>Log Out Account</Text>
           </TouchableOpacity>
         </View>
 
@@ -317,20 +348,22 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Sign Out Option */}
-        <TouchableOpacity
-          style={styles.signOutBtn}
-          onPress={() => {
-            Alert.alert('Sign Out', 'Are you sure you want to log out of MediScribe?', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Sign Out', style: 'destructive', onPress: logout },
-            ]);
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="log-out-outline" size={16} color="#94A3B8" style={{ marginRight: 6 }} />
-          <Text style={styles.signOutBtnText}>Sign Out of Clinician Account</Text>
-        </TouchableOpacity>
+        {/* Account Session & Sign Out Card */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.cardMainHeading}>Account Session</Text>
+          <Text style={styles.sessionSubtext}>
+            Logged in as {currentUser?.name || 'Dr. Marleen'} ({currentUser?.email || 'marleen.d@apollohealth.in'}). Signing out will securely end your session and require authentication to re-enter.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={handleLogout}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.logoutBtnText}>Sign Out of Clinician Account</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -603,18 +636,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* Sign Out Button */
-  signOutBtn: {
+  /* Logout Button with exact mobile application design */
+  logoutBtn: {
+    backgroundColor: '#0F172A',
+    height: 52,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
-    marginBottom: 20,
+    marginTop: 10,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  signOutBtnText: {
-    fontSize: 13,
-    color: '#94A3B8',
-    fontWeight: '600',
+  logoutBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  sessionSubtext: {
+    fontSize: 13.5,
+    color: '#64748B',
+    lineHeight: 19,
+    marginBottom: 8,
   },
 });
