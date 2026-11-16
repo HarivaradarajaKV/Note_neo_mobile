@@ -25,7 +25,6 @@ export const PatientsScreen: React.FC<Props> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { patients, addPatient, selectPatient } = useMobileApp();
   const [search, setSearch] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // New patient registration form state
@@ -43,7 +42,7 @@ export const PatientsScreen: React.FC<Props> = ({ navigation }) => {
       p.firstName.toLowerCase().includes(s) ||
       p.lastName.toLowerCase().includes(s) ||
       p.patientCode.toLowerCase().includes(s) ||
-      (p.condition && p.condition.toLowerCase().includes(s))
+      p.phone.toLowerCase().includes(s)
     );
   });
 
@@ -121,19 +120,7 @@ export const PatientsScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           <View style={styles.headerRightActions}>
-            <TouchableOpacity
-              style={styles.actionIconBtn}
-              activeOpacity={0.7}
-              onPress={() => setShowSearch((prev) => !prev)}
-            >
-              <Ionicons
-                name={showSearch ? 'close' : 'search-outline'}
-                size={22}
-                color="#334155"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionIconBtn} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
               <Ionicons name="notifications-outline" size={24} color="#334155" />
             </TouchableOpacity>
 
@@ -151,38 +138,31 @@ export const PatientsScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Patients registry Title */}
         <View style={styles.titleSection}>
-          <View style={styles.titleRow}>
-            <Text style={styles.mainTitle}>Patients registry</Text>
-            <TouchableOpacity
-              style={styles.registerBadgeBtn}
-              onPress={() => setIsAddModalOpen(true)}
-            >
-              <Ionicons name="add" size={16} color="#2563EB" />
-              <Text style={styles.registerBadgeText}>Add</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.mainTitle}>Patients registry</Text>
           <Text style={styles.subtitle}>Your AI Clinical Assistant</Text>
         </View>
 
-        {/* Optional Collapsible Search Bar */}
-        {showSearch && (
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color="#94A3B8" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by patient name, code, phone..."
-              placeholderTextColor="#94A3B8"
-              value={search}
-              onChangeText={setSearch}
-              autoFocus
-            />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={18} color="#94A3B8" />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        {/* Search Bar matching screenshot */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name, ID, or phone..."
+            placeholderTextColor="#94A3B8"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} style={styles.searchClearBtn}>
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Section Header Row: "All Patients" + "148 Total" */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>All Patients</Text>
+          <Text style={styles.totalBadge}>148 Total</Text>
+        </View>
 
         {/* Patient Registry Cards matching screenshot exactly */}
         <View style={styles.cardsList}>
@@ -367,9 +347,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  actionIconBtn: {
+  notificationBtn: {
     padding: 6,
-    marginRight: 8,
+    marginRight: 10,
   },
   doctorAvatar: {
     width: 38,
@@ -381,13 +361,8 @@ const styles = StyleSheet.create({
   },
   /* Title Section */
   titleSection: {
-    marginBottom: 18,
+    marginBottom: 16,
     marginTop: 4,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   mainTitle: {
     fontSize: 26,
@@ -400,39 +375,48 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginTop: 4,
   },
-  registerBadgeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: '#DBEAFE',
-  },
-  registerBadgeText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  /* Search Bar */
-  searchBar: {
+  /* Search Container matching screenshot */
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 18,
+    paddingHorizontal: 20,
+    height: 54,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 8,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: '#0F172A',
+  },
+  searchClearBtn: {
+    padding: 4,
+  },
+  /* Section Header Row: All Patients & 148 Total */
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    paddingHorizontal: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  totalBadge: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#2563EB',
   },
   /* Cards List */
   cardsList: {
@@ -477,14 +461,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   middleDetails: {
-    marginTop: 14,
+    marginTop: 12,
   },
   detailText: {
     fontSize: 14.5,
     color: '#64748B',
     marginBottom: 3,
   },
-  /* Full Width View patient Button */
+  /* Full Width View patient Button matching screenshot */
   viewPatientBtn: {
     backgroundColor: '#0F172A',
     borderRadius: 16,
