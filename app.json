@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Note Neo - Pivot Clinical AI",
+    "slug": "note-neo-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EFF4FA"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.noteneo.healthcare.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#EFF4FA"
+      },
+      "package": "com.noteneo.healthcare.mobile",
+      "permissions": [
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
