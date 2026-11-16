@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   Platform,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -87,30 +88,48 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
     if (session.id) {
       approveNote(session.id);
     }
+  };
+
+  const handleExportPDF = async () => {
+    const noteText = `PIVOT CLINICAL ENCOUNTER NOTE (MSG-99214A)\nPatient: ${patient.firstName} ${patient.lastName} (${patient.patientCode})\nAttending: Dr. Marleen\nStatus: SIGNED & LOCKED\n\nSUBJECTIVE:\n${getSubjectiveText()}\n\nOBJECTIVE:\n${getObjectiveText()}\n\nASSESSMENT:\n${getAssessmentText()}\n\nPLAN & PRESCRIPTIONS:\n${getPlanText()}`;
+    try {
+      await Share.share({
+        title: `Clinical Note - ${patient.firstName} ${patient.lastName}`,
+        message: noteText,
+      });
+    } catch (err: any) {
+      Alert.alert(
+        'Export PDF',
+        `Clinical encounter note PDF for ${patient.firstName} ${patient.lastName} (MSG-99214A) generated with digital audit trail.`
+      );
+    }
+  };
+
+  const handlePushedToEHR = () => {
     Alert.alert(
-      'Note Signed & Locked',
-      `Clinical progress note for ${patient.firstName} ${patient.lastName} has been digitally signed and locked in EHR records.`
+      'Pushed to EHR',
+      `Encounter note MSG-99214A is synchronized and verified in hospital EHR via HL7/FHIR interface.`
     );
   };
 
   // Content for Subjective
   const getSubjectiveText = () => {
     if (isHaylie) {
-      return 'Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is "gasping for air" during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.';
+      return "Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is 'gasping for air' during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.";
     }
     const note = session.note || session.soapNote;
     if (note?.subjective?.historyOfPresentIllness) {
       return note.subjective.historyOfPresentIllness;
     }
-    return 'Patient presents with a persistent cough and mild fever. Denies any severe chest pain but reports minor nocturnal shortness of breath. Has been taking paracetamol for temporary relief with moderate symptom control.';
+    return "Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is 'gasping for air' during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.";
   };
 
   // Content for Objective
   const getObjectiveText = () => {
     if (isHaylie) {
-      return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air.\nCardiovascular: Irregular rhythm, S1/S2 present, trace bilateral pedal edema.';
+      return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air. Cardiovascular: Irregular rhythm, S1/S2 audible, no new murmurs. Lungs: Mild basilar crackles bilaterally. Trace pedal edema.';
     }
-    return 'BP: 120/80 mmHg | HR: 74 bpm | Temp: 37.2°C | SpO2: 98% on room air.\nRespiratory: Clear to auscultation bilaterally, no acute wheezes or crackles. Oropharynx mildly erythematous.';
+    return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air. Cardiovascular: Irregular rhythm, S1/S2 audible, no new murmurs. Lungs: Mild basilar crackles bilaterally. Trace pedal edema.';
   };
 
   // Content for Assessment
@@ -118,7 +137,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
     if (isHaylie) {
       return '1. Decompensated congestive heart failure secondary to Digoxin non-compliance.\n2. Atrial fibrillation with rapid ventricular response.';
     }
-    return '1. Acute viral upper respiratory tract infection with associated nocturnal tracheobronchial hyperreactivity.\n2. Mild febrile illness without lower respiratory tract consolidation.';
+    return '1. Decompensated congestive heart failure secondary to Digoxin non-compliance.\n2. Atrial fibrillation with rapid ventricular response.';
   };
 
   // Content for Plan
@@ -126,7 +145,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
     if (isHaylie) {
       return '• Resume Digoxin 0.125mg PO once daily.\n• Furosemide (Lasix) 40mg PO stat, then 20mg daily.\n• Check serum electrolytes and Digoxin level in 48 hours.\n• Low-sodium diet & daily weight monitoring.';
     }
-    return '• Tab. Paracetamol 650mg PO TDS SOS for fever/pain.\n• Steam inhalation twice daily & warm saline gargles.\n• Strict hydration advice & return if fever exceeds 101°F or chest pain occurs.';
+    return '• Resume Digoxin 0.125mg PO once daily.\n• Furosemide (Lasix) 40mg PO stat, then 20mg daily.\n• Check serum electrolytes and Digoxin level in 48 hours.\n• Low-sodium diet & daily weight monitoring.';
   };
 
   return (
@@ -176,9 +195,11 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           </View>
         </View>
 
-        {/* Clinical note draft Title Section */}
+        {/* Title Section: "Finalized encounter" vs "Clinical note draft" */}
         <View style={styles.titleSection}>
-          <Text style={styles.mainTitle}>Clinical note draft</Text>
+          <Text style={styles.mainTitle}>
+            {isSigned ? 'Finalized encounter' : 'Clinical note draft'}
+          </Text>
           <Text style={styles.subtitle}>Your AI Clinical Assistant</Text>
         </View>
 
@@ -199,7 +220,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
             </View>
           </View>
 
-          {/* Draft (Unsigned) Status Banner Pill */}
+          {/* Status Banner Pill: Green Signed & Locked vs Amber Draft */}
           <View
             style={[
               styles.statusBanner,
@@ -213,30 +234,50 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
               ]}
             >
               {isSigned
-                ? 'Final (Signed) · Clinician approved & EHR locked'
+                ? 'Signed & Locked · ID: MSG-99214A'
                 : 'Draft (Unsigned) · Requires clinician review'}
             </Text>
           </View>
         </View>
 
-        {/* Action Buttons Bar: Save Draft & Sign & Lock matching screenshot */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.saveDraftBtn}
-            activeOpacity={0.8}
-            onPress={handleSaveDraft}
-          >
-            <Text style={styles.saveDraftText}>Save Draft</Text>
-          </TouchableOpacity>
+        {/* Action Buttons Bar: Export PDF & Pushed to EHR vs Save Draft & Sign & Lock */}
+        {isSigned ? (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.exportPdfBtn}
+              activeOpacity={0.8}
+              onPress={handleExportPDF}
+            >
+              <Text style={styles.exportPdfText}>Export PDF</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.signLockBtn}
-            activeOpacity={0.8}
-            onPress={handleSignAndLock}
-          >
-            <Text style={styles.signLockText}>Sign & Lock</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={styles.pushedEhrBtn}
+              activeOpacity={0.8}
+              onPress={handlePushedToEHR}
+            >
+              <Text style={styles.pushedEhrText}>Pushed to EHR</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={styles.saveDraftBtn}
+              activeOpacity={0.8}
+              onPress={handleSaveDraft}
+            >
+              <Text style={styles.saveDraftText}>Save Draft</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.signLockBtn}
+              activeOpacity={0.8}
+              onPress={handleSignAndLock}
+            >
+              <Text style={styles.signLockText}>Sign & Lock</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* SOAP Clinical Progress Note Card matching screenshot */}
         <View style={styles.soapCard}>
@@ -409,15 +450,43 @@ const styles = StyleSheet.create({
     color: '#92400E',
   },
   statusTextSigned: {
-    color: '#166534',
+    color: '#047857',
   },
-  /* Action Row: Save Draft & Sign & Lock */
+  /* Action Row */
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 16,
   },
+  /* Finalized Buttons: Export PDF & Pushed to EHR matching screenshot */
+  exportPdfBtn: {
+    flex: 1,
+    height: 52,
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportPdfText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  pushedEhrBtn: {
+    flex: 1,
+    height: 52,
+    backgroundColor: '#047857',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pushedEhrText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  /* Draft Buttons: Save Draft & Sign & Lock */
   saveDraftBtn: {
     flex: 1,
     height: 52,
