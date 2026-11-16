@@ -20,6 +20,7 @@ import { PatientScheduleScreen } from '../screens/patient/PatientScheduleScreen'
 import { ClinicalSecurityScreen } from '../screens/settings/ClinicalSecurityScreen';
 import { NotificationsScreen } from '../screens/settings/NotificationsScreen';
 import { EhrIntegrationsScreen } from '../screens/settings/EhrIntegrationsScreen';
+import { AiScribePresetScreen } from '../screens/settings/AiScribePresetScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -58,6 +59,7 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="ClinicalSecurity" component={ClinicalSecurityScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="EhrIntegrations" component={EhrIntegrationsScreen} />
+      <Stack.Screen name="AiScribePreset" component={AiScribePresetScreen} />
     </Stack.Navigator>
   );
 };

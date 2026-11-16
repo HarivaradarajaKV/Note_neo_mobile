@@ -76,6 +76,10 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleSettingClick = (item: typeof ACCOUNT_SETTINGS_OPTIONS[0]) => {
+    if (item.id === 'model_preset') {
+      navigation?.navigate('AiScribePreset');
+      return;
+    }
     if (item.id === 'ehr') {
       navigation?.navigate('EhrIntegrations');
       return;
