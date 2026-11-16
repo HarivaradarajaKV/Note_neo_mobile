@@ -1,15 +1,27 @@
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LiveConsultationScreen } from '../screens/consultation/LiveConsultationScreen';
 import { PatientsScreen } from '../screens/patients/PatientsScreen';
 import { ScheduleScreen } from '../screens/schedule/ScheduleScreen';
 import { NotesListScreen } from '../screens/notes/NotesListScreen';
+import { ClinicalNoteReviewScreen } from '../screens/review/ClinicalNoteReviewScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
+const NotesStack = createNativeStackNavigator();
+
+const NotesNavigator: React.FC = () => {
+  return (
+    <NotesStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="ClinicalNoteReview">
+      <NotesStack.Screen name="ClinicalNoteReview" component={ClinicalNoteReviewScreen} />
+      <NotesStack.Screen name="NotesList" component={NotesListScreen} />
+    </NotesStack.Navigator>
+  );
+};
 
 export const DoctorTabs: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -84,7 +96,7 @@ export const DoctorTabs: React.FC = () => {
       />
       <Tab.Screen
         name="Notes"
-        component={NotesListScreen}
+        component={NotesNavigator}
         options={{ tabBarLabel: 'Notes' }}
       />
       <Tab.Screen

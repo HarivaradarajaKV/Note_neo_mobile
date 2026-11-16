@@ -55,9 +55,8 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
     };
 
   const patient = session.patient || hayliePatient;
-  const isHaylie = patient.firstName.toLowerCase().includes('haylie');
-
   const [isSigned, setIsSigned] = useState(session.status === 'approved');
+  const [insertedCompanion, setInsertedCompanion] = useState(false);
 
   const getPatientAvatarSource = (pat: Patient) => {
     const fName = pat.firstName.toLowerCase();
@@ -88,10 +87,14 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
     if (session.id) {
       approveNote(session.id);
     }
+    Alert.alert(
+      'Note Finalized & Locked',
+      `Clinical encounter MSG-99214A for ${patient.firstName} ${patient.lastName} has been digitally signed and locked.`
+    );
   };
 
   const handleExportPDF = async () => {
-    const noteText = `PIVOT CLINICAL ENCOUNTER NOTE (MSG-99214A)\nPatient: ${patient.firstName} ${patient.lastName} (${patient.patientCode})\nAttending: Dr. Marleen\nStatus: SIGNED & LOCKED\n\nSUBJECTIVE:\n${getSubjectiveText()}\n\nOBJECTIVE:\n${getObjectiveText()}\n\nASSESSMENT:\n${getAssessmentText()}\n\nPLAN & PRESCRIPTIONS:\n${getPlanText()}`;
+    const noteText = `MEDISCRIBE CLINICAL ENCOUNTER NOTE (MSG-99214A)\nPatient: ${patient.firstName} ${patient.lastName} (${patient.patientCode})\nAttending: Dr. Marleen\nStatus: ${isSigned ? 'SIGNED & LOCKED' : 'DRAFT (UNSIGNED)'}\n\nSUBJECTIVE:\n${getSubjectiveText()}\n\nOBJECTIVE:\n${getObjectiveText()}\n\nASSESSMENT:\n${getAssessmentText()}\n\nPLAN:\n${getPlanText()}\n\nDISCOVERED PRESCRIPTIONS:\n- Digoxin (resume dosage): 0.125 mg once daily\n- Furosemide (temporary): 20 mg once daily`;
     try {
       await Share.share({
         title: `Clinical Note - ${patient.firstName} ${patient.lastName}`,
@@ -108,44 +111,37 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
   const handlePushedToEHR = () => {
     Alert.alert(
       'Pushed to EHR',
-      `Encounter note MSG-99214A is synchronized and verified in hospital EHR via HL7/FHIR interface.`
+      `Encounter note MSG-99214A successfully synchronized to hospital EHR via HL7/FHIR interface.`
     );
   };
 
-  // Content for Subjective
+  const handleInsertCompanion = () => {
+    setInsertedCompanion(true);
+    Alert.alert(
+      'Inserted into Subjective',
+      'AI Clinical Companion insight has been integrated into the Subjective History & Symptoms section.'
+    );
+  };
+
   const getSubjectiveText = () => {
-    if (isHaylie) {
-      return "Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is 'gasping for air' during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.";
+    const baseText =
+      'Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is "gasping for air" during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.';
+    if (insertedCompanion) {
+      return `${baseText}\n\n[AI Scribe Insight]: Skipping Digoxin doses correlates with the onset of acute orthopnea and paroxysmal nocturnal dyspnea, highly suggestive of left-sided ventricular overload.`;
     }
-    const note = session.note || session.soapNote;
-    if (note?.subjective?.historyOfPresentIllness) {
-      return note.subjective.historyOfPresentIllness;
-    }
-    return "Patient presents with progressive chronic chest tightness and increased nocturnal dyspnea over the last 5 days. States she is unable to lay flat in bed and feels like she is 'gasping for air' during sleep. Admits to skipping several doses of Digoxin last week due to a mild stomach upset.";
+    return baseText;
   };
 
-  // Content for Objective
   const getObjectiveText = () => {
-    if (isHaylie) {
-      return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air. Cardiovascular: Irregular rhythm, S1/S2 audible, no new murmurs. Lungs: Mild basilar crackles bilaterally. Trace pedal edema.';
-    }
-    return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air. Cardiovascular: Irregular rhythm, S1/S2 audible, no new murmurs. Lungs: Mild basilar crackles bilaterally. Trace pedal edema.';
+    return 'BP: 135/88 mmHg | HR: 94 bpm (Irregularly irregular) | Temp: 36.8°C | SpO2: 95% on room air.\nCardiovascular: Irregular rhythm, S1/S2 audible, no new murmurs. Lungs: Mild bilateral bibasilar crackles on auscultation. Minimal pedal edema bilaterally.';
   };
 
-  // Content for Assessment
   const getAssessmentText = () => {
-    if (isHaylie) {
-      return '1. Decompensated congestive heart failure secondary to Digoxin non-compliance.\n2. Atrial fibrillation with rapid ventricular response.';
-    }
-    return '1. Decompensated congestive heart failure secondary to Digoxin non-compliance.\n2. Atrial fibrillation with rapid ventricular response.';
+    return '1. Paroxysmal Nocturnal Dyspnea secondary to Exacerbation of Chronic Heart Failure.\n2. Persistent Atrial Fibrillation with sub-therapeutic Digoxin compliance.\n3. Patient demonstrates poor adherence to medication schedule because of GI sensitivity.';
   };
 
-  // Content for Plan
   const getPlanText = () => {
-    if (isHaylie) {
-      return '• Resume Digoxin 0.125mg PO once daily.\n• Furosemide (Lasix) 40mg PO stat, then 20mg daily.\n• Check serum electrolytes and Digoxin level in 48 hours.\n• Low-sodium diet & daily weight monitoring.';
-    }
-    return '• Resume Digoxin 0.125mg PO once daily.\n• Furosemide (Lasix) 40mg PO stat, then 20mg daily.\n• Check serum electrolytes and Digoxin level in 48 hours.\n• Low-sodium diet & daily weight monitoring.';
+    return '- Reinstitute Digoxin at prescribed dose, to be taken with meals to minimize GI distress.\n- Administer oral Furosemide 20mg daily for mild fluid retention / overload control.\n- Order an updated Echocardiogram to evaluate current Left Ventricular Ejection Fraction (LVEF).\n- Follow up in clinic in 7 days, sooner if orthopnea worsens.';
   };
 
   return (
@@ -180,7 +176,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
 
           <View style={styles.headerRightActions}>
             <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
-              <Ionicons name="notifications-outline" size={24} color="#334155" />
+              <Ionicons name="notifications-outline" size={22} color="#334155" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -195,7 +191,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           </View>
         </View>
 
-        {/* Title Section: "Finalized encounter" vs "Clinical note draft" */}
+        {/* Title Section: "Clinical note draft" vs "Finalized encounter" */}
         <View style={styles.titleSection}>
           <Text style={styles.mainTitle}>
             {isSigned ? 'Finalized encounter' : 'Clinical note draft'}
@@ -220,7 +216,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
             </View>
           </View>
 
-          {/* Status Banner Pill: Green Signed & Locked vs Amber Draft */}
+          {/* Status Banner Pill: Amber Draft vs Green Signed & Locked */}
           <View
             style={[
               styles.statusBanner,
@@ -240,20 +236,20 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           </View>
         </View>
 
-        {/* Action Buttons Bar: Export PDF & Pushed to EHR vs Save Draft & Sign & Lock */}
+        {/* Action Buttons Bar: Save Draft & Sign & Lock vs Export PDF & Pushed to EHR */}
         {isSigned ? (
           <View style={styles.actionRow}>
             <TouchableOpacity
-              style={styles.exportPdfBtn}
-              activeOpacity={0.8}
+              style={styles.darkActionBtn}
+              activeOpacity={0.85}
               onPress={handleExportPDF}
             >
-              <Text style={styles.exportPdfText}>Export PDF</Text>
+              <Text style={styles.darkActionBtnText}>Export PDF</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.pushedEhrBtn}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={handlePushedToEHR}
             >
               <Text style={styles.pushedEhrText}>Pushed to EHR</Text>
@@ -263,7 +259,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.saveDraftBtn}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={handleSaveDraft}
             >
               <Text style={styles.saveDraftText}>Save Draft</Text>
@@ -271,7 +267,7 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
 
             <TouchableOpacity
               style={styles.signLockBtn}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               onPress={handleSignAndLock}
             >
               <Text style={styles.signLockText}>Sign & Lock</Text>
@@ -279,32 +275,119 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           </View>
         )}
 
-        {/* SOAP Clinical Progress Note Card matching screenshot */}
-        <View style={styles.soapCard}>
-          <Text style={styles.soapCardTitle}>SOAP Clinical Progress Note</Text>
+        {/* SOAP Clinical Progress Note Card matching screenshots 1 & 2 */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.cardMainHeading}>SOAP Clinical Progress Note</Text>
 
           {/* Subjective Section */}
-          <Text style={styles.sectionLabel}>Subjective (History & Symptoms)</Text>
-          <View style={styles.sectionBox}>
-            <Text style={styles.sectionText}>{getSubjectiveText()}</Text>
+          <Text style={styles.sectionSubLabel}>Subjective (History & Symptoms)</Text>
+          <View style={styles.sectionGrayBox}>
+            <Text style={styles.sectionBodyText}>{getSubjectiveText()}</Text>
           </View>
 
           {/* Objective Section */}
-          <Text style={styles.sectionLabel}>Objective (Vitals & Physical Exam)</Text>
-          <View style={styles.sectionBox}>
-            <Text style={styles.sectionText}>{getObjectiveText()}</Text>
+          <Text style={styles.sectionSubLabel}>Objective (Vitals & Physical Exam)</Text>
+          <View style={styles.sectionGrayBox}>
+            <Text style={styles.sectionBodyText}>{getObjectiveText()}</Text>
           </View>
 
           {/* Assessment Section */}
-          <Text style={styles.sectionLabel}>Assessment (Clinical Impression)</Text>
-          <View style={styles.sectionBox}>
-            <Text style={styles.sectionText}>{getAssessmentText()}</Text>
+          <Text style={styles.sectionSubLabel}>Assessment (Diagnoses & Findings)</Text>
+          <View style={styles.sectionGrayBox}>
+            <Text style={styles.sectionBodyText}>{getAssessmentText()}</Text>
           </View>
 
           {/* Plan Section */}
-          <Text style={styles.sectionLabel}>Plan & Prescriptions</Text>
-          <View style={styles.sectionBox}>
-            <Text style={styles.sectionText}>{getPlanText()}</Text>
+          <Text style={styles.sectionSubLabel}>Plan (Treatments, Meds & Follow-up)</Text>
+          <View style={[styles.sectionGrayBox, { marginBottom: 0 }]}>
+            <Text style={styles.sectionBodyText}>{getPlanText()}</Text>
+          </View>
+        </View>
+
+        {/* AI Clinical Companion Card matching screenshot 3 */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.cardMainHeading}>AI Clinical Companion</Text>
+
+          {/* Extracted from Live Scribe pill banner */}
+          <View style={styles.extractedBanner}>
+            <Text style={styles.extractedBannerText}>EXTRACTED FROM LIVE SCRIBE</Text>
+          </View>
+
+          <Text style={styles.companionBodyText}>
+            Patient reported skipping Digoxin doses last week due to GI upset. This correlates with the onset of acute orthopnea and paroxysmal nocturnal dyspnea, highly suggestive of left-sided ventricular overload.
+          </Text>
+
+          {/* + Insert into Subjective Button */}
+          <TouchableOpacity
+            style={[
+              styles.insertCompanionBtn,
+              insertedCompanion && styles.insertCompanionBtnActive,
+            ]}
+            onPress={handleInsertCompanion}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.insertCompanionBtnText}>
+              {insertedCompanion ? '✓ Inserted into Subjective' : '+ Insert into Subjective'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Discovered Prescriptions Card matching screenshots 3 & 4 */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.cardMainHeading}>Discovered Prescriptions</Text>
+
+          {/* Prescription 1: Digoxin */}
+          <Text style={styles.prescriptionLabel}>Digoxin (resume dosage)</Text>
+          <View style={styles.prescriptionBox}>
+            <Text style={styles.prescriptionValue}>0.125 mg once daily</Text>
+          </View>
+
+          {/* Prescription 2: Furosemide */}
+          <Text style={styles.prescriptionLabel}>Furosemide (temporary)</Text>
+          <View style={[styles.prescriptionBox, { marginBottom: 0 }]}>
+            <Text style={styles.prescriptionValue}>20 mg once daily</Text>
+          </View>
+        </View>
+
+        {/* Action Buttons Bar below Discovered Prescriptions matching screenshot 4 */}
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.darkActionBtn}
+            activeOpacity={0.85}
+            onPress={handleExportPDF}
+          >
+            <Text style={styles.darkActionBtnText}>Export PDF</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.blueActionBtn}
+            activeOpacity={0.85}
+            onPress={handlePushedToEHR}
+          >
+            <Text style={styles.blueActionBtnText}>Push to EHR</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Consultation Notes Card matching screenshot 4 */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.cardMainHeading}>Consultation Notes</Text>
+
+          {/* Note 1: Current Note (Draft) */}
+          <Text style={styles.noteItemLabel}>Current Note (Draft)</Text>
+          <View style={styles.noteItemBox}>
+            <Text style={styles.noteItemText}>AI Scribe · Today, 10:32 AM · General visit</Text>
+          </View>
+
+          {/* Note 2: Cardiology Follow-up */}
+          <Text style={styles.noteItemLabel}>Cardiology Follow-up</Text>
+          <View style={styles.noteItemBox}>
+            <Text style={styles.noteItemText}>Signed · 12 Dec 2025 · Dr. Marleen</Text>
+          </View>
+
+          {/* Note 3: Routine Assessment */}
+          <Text style={styles.noteItemLabel}>Routine Assessment</Text>
+          <View style={[styles.noteItemBox, { marginBottom: 0 }]}>
+            <Text style={styles.noteItemText}>Signed · 14 Aug 2025 · Dr. Marleen</Text>
           </View>
         </View>
       </ScrollView>
@@ -325,6 +408,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 4,
   },
+
   /* Top MediScribe Header */
   topHeader: {
     flexDirection: 'row',
@@ -374,6 +458,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#BFDBFE',
   },
+
   /* Title Section */
   titleSection: {
     marginBottom: 16,
@@ -383,173 +468,289 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     color: '#0F172A',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 14.5,
     color: '#64748B',
     marginTop: 4,
   },
+
   /* Patient Details Card */
   patientCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 20,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    elevation: 3,
   },
   patientTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   patientAvatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#E2E8F0',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F1F5F9',
+    marginRight: 14,
   },
   patientInfoColumn: {
-    marginLeft: 14,
     flex: 1,
-    justifyContent: 'center',
   },
   patientName: {
-    fontSize: 18,
+    fontSize: 17.5,
     fontWeight: '700',
     color: '#0F172A',
   },
   patientMeta: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#64748B',
-    marginTop: 4,
+    marginTop: 3,
   },
   statusBanner: {
-    borderRadius: 12,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginTop: 14,
-    alignSelf: 'stretch',
   },
   statusBannerDraft: {
     backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
   },
   statusBannerSigned: {
     backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
   statusBannerText: {
-    fontSize: 13.5,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
   },
   statusTextDraft: {
-    color: '#92400E',
+    color: '#B45309',
   },
   statusTextSigned: {
-    color: '#047857',
+    color: '#059669',
   },
-  /* Action Row */
+
+  /* Top & Middle Action Buttons */
   actionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
     marginBottom: 16,
   },
-  /* Finalized Buttons: Export PDF & Pushed to EHR matching screenshot */
-  exportPdfBtn: {
-    flex: 1,
-    height: 52,
-    backgroundColor: '#0F172A',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exportPdfText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  pushedEhrBtn: {
-    flex: 1,
-    height: 52,
-    backgroundColor: '#047857',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pushedEhrText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  /* Draft Buttons: Save Draft & Sign & Lock */
   saveDraftBtn: {
     flex: 1,
+    backgroundColor: '#64748B',
     height: 52,
-    backgroundColor: '#475569',
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveDraftText: {
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   signLockBtn: {
     flex: 1,
-    height: 52,
     backgroundColor: '#2563EB',
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  signLockText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  darkActionBtn: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    height: 52,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  signLockText: {
+  darkActionBtnText: {
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
-  /* SOAP Card */
-  soapCard: {
+  blueActionBtn: {
+    flex: 1,
+    backgroundColor: '#2563EB',
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  blueActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  pushedEhrBtn: {
+    flex: 1,
+    backgroundColor: '#059669',
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pushedEhrText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  /* Standard Card Container (SOAP, AI Companion, Prescriptions, Consultation Notes) */
+  cardContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 20,
-    marginBottom: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    elevation: 3,
   },
-  soapCardTitle: {
+  cardMainHeading: {
     fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  sectionLabel: {
+
+  /* SOAP Card Elements */
+  sectionSubLabel: {
     fontSize: 13.5,
     fontWeight: '600',
     color: '#64748B',
     marginBottom: 8,
-    marginTop: 12,
   },
-  sectionBox: {
+  sectionGrayBox: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+    marginBottom: 16,
   },
-  sectionText: {
+  sectionBodyText: {
     fontSize: 14.5,
-    color: '#334155',
     lineHeight: 22,
+    color: '#1E293B',
+    fontWeight: '400',
+  },
+
+  /* AI Clinical Companion Elements */
+  extractedBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+    alignSelf: 'stretch',
+  },
+  extractedBannerText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#2563EB',
+    letterSpacing: 0.5,
+  },
+  companionBodyText: {
+    fontSize: 14.5,
+    lineHeight: 22,
+    color: '#1E293B',
+    marginBottom: 16,
+    fontWeight: '400',
+  },
+  insertCompanionBtn: {
+    backgroundColor: '#2563EB',
+    height: 50,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  insertCompanionBtnActive: {
+    backgroundColor: '#059669',
+    shadowColor: '#059669',
+  },
+  insertCompanionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  /* Discovered Prescriptions Elements */
+  prescriptionLabel: {
+    fontSize: 13.5,
+    color: '#64748B',
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  prescriptionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 14,
+  },
+  prescriptionValue: {
+    fontSize: 14.5,
+    color: '#0F172A',
+    fontWeight: '500',
+  },
+
+  /* Consultation Notes Elements */
+  noteItemLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  noteItemBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    marginBottom: 14,
+  },
+  noteItemText: {
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '500',
   },
 });
