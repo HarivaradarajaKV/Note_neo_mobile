@@ -22,6 +22,7 @@ import { NotificationsScreen } from '../screens/settings/NotificationsScreen';
 import { EhrIntegrationsScreen } from '../screens/settings/EhrIntegrationsScreen';
 import { AiScribePresetScreen } from '../screens/settings/AiScribePresetScreen';
 import { BillingLicensesScreen } from '../screens/settings/BillingLicensesScreen';
+import { SystemPreferencesScreen } from '../screens/settings/SystemPreferencesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -62,6 +63,7 @@ export const RootNavigator: React.FC = () => {
       <Stack.Screen name="EhrIntegrations" component={EhrIntegrationsScreen} />
       <Stack.Screen name="AiScribePreset" component={AiScribePresetScreen} />
       <Stack.Screen name="BillingLicenses" component={BillingLicensesScreen} />
+      <Stack.Screen name="SystemPreferences" component={SystemPreferencesScreen} />
     </Stack.Navigator>
   );
 };
