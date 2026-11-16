@@ -11,6 +11,7 @@ import { NotesListScreen } from '../screens/notes/NotesListScreen';
 import { ClinicalNoteReviewScreen } from '../screens/review/ClinicalNoteReviewScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { ClinicalSecurityScreen } from '../screens/settings/ClinicalSecurityScreen';
+import { NotificationsScreen } from '../screens/settings/NotificationsScreen';
 
 const Tab = createBottomTabNavigator();
 const NotesStack = createNativeStackNavigator();
@@ -27,7 +28,8 @@ const NotesNavigator: React.FC = () => {
 
 const SettingsNavigator: React.FC = () => {
   return (
-    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="ClinicalSecurity">
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Notifications">
+      <SettingsStack.Screen name="Notifications" component={NotificationsScreen} />
       <SettingsStack.Screen name="ClinicalSecurity" component={ClinicalSecurityScreen} />
       <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
     </SettingsStack.Navigator>

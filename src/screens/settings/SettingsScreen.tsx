@@ -76,6 +76,10 @@ export const SettingsScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleSettingClick = (item: typeof ACCOUNT_SETTINGS_OPTIONS[0]) => {
+    if (item.id === 'notifications') {
+      navigation?.navigate('Notifications');
+      return;
+    }
     if (item.id === 'security') {
       navigation?.navigate('ClinicalSecurity');
       return;
