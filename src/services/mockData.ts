@@ -338,3 +338,104 @@ export function createBlankSOAPNote(consultationId: string, patient: Patient, do
   };
 }
 
+export const INITIAL_CONSULTATIONS: ConsultationSession[] = [
+  {
+    id: 'cons-ramesh-01',
+    patient: INITIAL_PATIENTS[0], // Ramesh Kumar
+    doctor: INITIAL_DOCTOR,
+    date: 'Today, 10:24 AM',
+    time: '10:24 AM',
+    durationSeconds: 272,
+    reasonForVisit: 'Persistent cough and mild fever',
+    status: 'review_required',
+    transcript: [],
+    insights: [],
+    note: {
+      ...createBlankSOAPNote('cons-ramesh-01', INITIAL_PATIENTS[0], INITIAL_DOCTOR),
+      templateType: 'SOAP Note',
+      subjective: {
+        chiefComplaint: 'Persistent cough and mild fever',
+        historyOfPresentIllness: 'Patient presents with a persistent cough and mild fever. Denies any severe chest pain but reports minor nocturnal shortness of breath.',
+        associatedSymptoms: ['Mild fever', 'Nocturnal cough'],
+        negativeSymptoms: ['No acute chest pain'],
+        medicationsMentioned: ['Paracetamol 650mg'],
+      },
+      assessment: {
+        differentialDiagnosis: ['Upper Respiratory Tract Infection', 'Acute Bronchitis'],
+        clinicalImpression: 'Viral URI with associated tracheobronchial hyperreactivity.',
+        isAIDetermined: true,
+      },
+      conversationSummary:
+        'Patient presents with a persistent cough and mild fever. Denies any severe chest pain but reports minor nocturnal shortness of breath...',
+    },
+  },
+  {
+    id: 'cons-eleanor-02',
+    patient: INITIAL_PATIENTS[2], // Eleanor Pena
+    doctor: INITIAL_DOCTOR,
+    date: 'Yesterday, 4:15 PM',
+    time: '04:15 PM',
+    durationSeconds: 410,
+    reasonForVisit: 'Cardiology Referral',
+    status: 'approved',
+    transcript: [],
+    insights: [],
+    note: {
+      ...createBlankSOAPNote('cons-eleanor-02', INITIAL_PATIENTS[2], INITIAL_DOCTOR),
+      templateType: 'Referral Letter',
+      status: 'approved',
+      doctorApproved: true,
+      subjective: {
+        chiefComplaint: 'Intermittent palpitations and mild hypertension',
+        historyOfPresentIllness:
+          'Referral for Eleanor Pena to cardiologist regarding intermittent palpitations and mild hypertension. EKG notes attached.',
+        associatedSymptoms: ['Palpitations'],
+        negativeSymptoms: ['No chest pain', 'No syncope'],
+        medicationsMentioned: ['Salbutamol'],
+      },
+      assessment: {
+        differentialDiagnosis: ['Premature Ventricular Contractions', 'Essential Hypertension'],
+        clinicalImpression:
+          'Intermittent sinus tachycardia / benign palpitations with mild stage 1 hypertension.',
+        isAIDetermined: true,
+      },
+      conversationSummary:
+        'Referral for Eleanor Pena to cardiologist regarding intermittent palpitations and mild hypertension. EKG notes attached...',
+    },
+  },
+  {
+    id: 'cons-brooklyn-03',
+    patient: INITIAL_PATIENTS[1], // Brooklyn Simmons
+    doctor: INITIAL_DOCTOR,
+    date: '18 Jan 2026, 11:30 AM',
+    time: '11:30 AM',
+    durationSeconds: 320,
+    reasonForVisit: 'Annual Physical',
+    status: 'approved',
+    transcript: [],
+    insights: [],
+    note: {
+      ...createBlankSOAPNote('cons-brooklyn-03', INITIAL_PATIENTS[1], INITIAL_DOCTOR),
+      templateType: 'SOAP Note',
+      status: 'approved',
+      doctorApproved: true,
+      subjective: {
+        chiefComplaint: 'Annual executive physical examination',
+        historyOfPresentIllness:
+          'Annual executive physical examination. Vital signs within normal physiological limits. Baseline lipid profile and metabolic screening ordered.',
+        associatedSymptoms: [],
+        negativeSymptoms: ['No acute complaints'],
+        medicationsMentioned: ['Multivitamin'],
+      },
+      assessment: {
+        differentialDiagnosis: ['Healthy Adult Outpatient'],
+        clinicalImpression: 'Normal physical evaluation. Routine health maintenance.',
+        isAIDetermined: true,
+      },
+      conversationSummary:
+        'Annual executive physical examination. Vital signs within normal physiological limits. Baseline lipid profile and metabolic screening ordered...',
+    },
+  },
+];
+
+

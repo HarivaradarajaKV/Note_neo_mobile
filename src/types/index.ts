@@ -108,6 +108,7 @@ export interface SOAPNote {
   status: 'draft' | 'review_required' | 'approved' | 'exported';
   approvedBy?: string;
   approvedAt?: string;
+  doctorApproved?: boolean;
   templateType: string;
   subjective: {
     chiefComplaint: string;

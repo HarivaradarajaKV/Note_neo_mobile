@@ -15,6 +15,7 @@ import {
   INITIAL_DOCTOR,
   INITIAL_PATIENTS,
   INITIAL_APPOINTMENTS,
+  INITIAL_CONSULTATIONS,
   createBlankSOAPNote,
 } from '../services/mockData';
 import { accuratelyDiarizeConsultationDialogue } from '../services/speakerDiarization';
@@ -118,7 +119,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS);
   const [selectedPatient, setSelectedPatient] = useState<Patient>(INITIAL_PATIENTS[0]);
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
-  const [consultations, setConsultations] = useState<ConsultationSession[]>([]);
+  const [consultations, setConsultations] = useState<ConsultationSession[]>(INITIAL_CONSULTATIONS);
   const [activeConsultation, setActiveConsultation] = useState<ConsultationSession | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(true);
   const [isPaused, setIsPaused] = useState<boolean>(false);

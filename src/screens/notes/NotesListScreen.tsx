@@ -1,214 +1,434 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  Platform,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useMobileApp } from '../../context/MobileAppContext';
-import { MobileHeader } from '../../components/common/MobileHeader';
-import { CardContainer } from '../../components/common/CardContainer';
-import { StatusBadge } from '../../components/common/StatusBadge';
+import { ConsultationSession } from '../../types';
 
 interface Props {
   navigation: any;
 }
 
 export const NotesListScreen: React.FC<Props> = ({ navigation }) => {
-  const { consultations, patients } = useMobileApp();
+  const insets = useSafeAreaInsets();
+  const { consultations } = useMobileApp();
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'drafts' | 'finalized'>('all');
 
-  const notesList = consultations.filter((c) => c.note);
+  const notesList = consultations.filter((c) => c.note || c.soapNote);
 
   const filtered = notesList.filter((c) => {
+    const note = c.note || c.soapNote;
+    const isApproved = c.status === 'approved' || note?.status === 'approved';
+
+    if (activeTab === 'drafts' && isApproved) return false;
+    if (activeTab === 'finalized' && !isApproved) return false;
+
     const s = search.toLowerCase();
     return (
       !s ||
       c.patient.firstName.toLowerCase().includes(s) ||
       c.patient.lastName.toLowerCase().includes(s) ||
-      c.patient.patientCode.toLowerCase().includes(s) ||
-      (c.note?.subjective.chiefComplaint && c.note.subjective.chiefComplaint.toLowerCase().includes(s))
+      (note?.subjective?.chiefComplaint &&
+        note.subjective.chiefComplaint.toLowerCase().includes(s)) ||
+      (note?.conversationSummary && note.conversationSummary.toLowerCase().includes(s))
     );
   });
 
+  const getNoteSubtitle = (c: ConsultationSession) => {
+    const note = c.note || c.soapNote;
+    const type = note?.templateType || 'SOAP Note';
+    return `${type} · ${c.date}`;
+  };
+
+  const getNoteSnippet = (c: ConsultationSession) => {
+    const note = c.note || c.soapNote;
+    if (note?.conversationSummary) return note.conversationSummary;
+    if (note?.subjective?.historyOfPresentIllness) return note.subjective.historyOfPresentIllness;
+    return `Patient presents for ${c.reasonForVisit}. Clinical evaluation and management documented.`;
+  };
+
   return (
-    <View style={styles.container}>
-      <MobileHeader title="Clinical SOAP Notes" subtitle="EHR documentation & approvals" />
+    <View
+      style={[
+        styles.rootContainer,
+        { paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 12 : 24) },
+      ]}
+    >
+      <StatusBar style="dark" />
 
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color="#94A3B8" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search notes by patient, diagnosis, drug..."
-          placeholderTextColor="#94A3B8"
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color="#94A3B8" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <ScrollView contentContainerStyle={styles.listContent}>
-        {filtered.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={42} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>No Clinical Notes Found</Text>
-            <Text style={styles.emptySubtitle}>
-              Notes generated from live consultation scribing will appear here for review and digital signature.
-            </Text>
+      {/* Main Scrollable Content */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 24) + 60 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Top MediScribe Header matching screenshot */}
+        <View style={styles.topHeader}>
+          <View style={styles.brandContainer}>
+            <View style={styles.stethoscopeIconContainer}>
+              <FontAwesome5 name="stethoscope" size={24} color="#2563EB" />
+            </View>
+            <View style={styles.brandTextColumn}>
+              <Text style={styles.brandTitle}>MediScribe</Text>
+              <Text style={styles.brandSubtitle}>CLINICIAN</Text>
+            </View>
           </View>
-        ) : (
-          filtered.map((c) => {
-            const note = c.note!;
+
+          <View style={styles.headerRightActions}>
+            <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
+              <Ionicons name="notifications-outline" size={24} color="#334155" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <Image
+                source={require('../../../assets/doctor-avatar.png')}
+                style={styles.doctorAvatar}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Clinical notes Title */}
+        <View style={styles.titleSection}>
+          <Text style={styles.mainTitle}>Clinical notes</Text>
+          <Text style={styles.subtitle}>Your AI Clinical Assistant</Text>
+        </View>
+
+        {/* SOAP Auto-draft Enabled Green Pill Banner */}
+        <View style={styles.autoDraftBanner}>
+          <Text style={styles.autoDraftText}>SOAP Auto-draft Enabled</Text>
+        </View>
+
+        {/* Search Bar matching screenshot */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by patient, note text..."
+            placeholderTextColor="#94A3B8"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')} style={styles.searchClearBtn}>
+              <Ionicons name="close-circle" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter Segment Tabs: All Notes | Drafts | Finalized */}
+        <View style={styles.segmentContainer}>
+          <TouchableOpacity
+            style={[styles.segmentTab, activeTab === 'all' && styles.segmentTabActive]}
+            onPress={() => setActiveTab('all')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[styles.segmentTabText, activeTab === 'all' && styles.segmentTabTextActive]}
+            >
+              All Notes
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.segmentTab, activeTab === 'drafts' && styles.segmentTabActive]}
+            onPress={() => setActiveTab('drafts')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.segmentTabText,
+                activeTab === 'drafts' && styles.segmentTabTextActive,
+              ]}
+            >
+              Drafts
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.segmentTab, activeTab === 'finalized' && styles.segmentTabActive]}
+            onPress={() => setActiveTab('finalized')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.segmentTabText,
+                activeTab === 'finalized' && styles.segmentTabTextActive,
+              ]}
+            >
+              Finalized
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Clinical Note Cards matching screenshot exactly */}
+        <View style={styles.cardsList}>
+          {filtered.map((c) => {
+            const note = c.note || c.soapNote;
+            const isApproved = c.status === 'approved' || note?.status === 'approved';
+
             return (
               <TouchableOpacity
                 key={c.id}
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate('ClinicalNoteReview', { consultation: c })}
+                style={styles.noteCard}
+                activeOpacity={0.85}
+                onPress={() =>
+                  navigation.navigate('ClinicalNoteReview', { consultation: c })
+                }
               >
-                <CardContainer style={styles.card}>
-                  <View style={styles.cardHeader}>
-                    <View>
-                      <Text style={styles.patientName}>
-                        {c.patient.firstName} {c.patient.lastName}
-                      </Text>
-                      <Text style={styles.metaLine}>{c.patient.patientCode} · {c.date}</Text>
-                    </View>
-                    <StatusBadge status={c.status} />
-                  </View>
+                {/* Patient Name */}
+                <Text style={styles.patientName}>
+                  {c.patient.firstName} {c.patient.lastName}
+                </Text>
 
-                  <Text style={styles.ccLabel}>Chief Complaint:</Text>
-                  <Text style={styles.ccValue}>{note.subjective.chiefComplaint}</Text>
+                {/* Status Pill: Amber Draft vs Green Final */}
+                <View
+                  style={[
+                    styles.statusPill,
+                    isApproved ? styles.statusPillFinal : styles.statusPillDraft,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusPillText,
+                      isApproved ? styles.statusTextFinal : styles.statusTextDraft,
+                    ]}
+                  >
+                    {isApproved ? 'Final' : 'Draft'}
+                  </Text>
+                </View>
 
-                  <Text style={styles.impLabel}>Impression:</Text>
-                  <Text style={styles.impValue}>{note.assessment.clinicalImpression}</Text>
+                {/* Note Metadata: e.g. "SOAP Note · Today, 10:24 AM" */}
+                <Text style={styles.noteMeta}>{getNoteSubtitle(c)}</Text>
 
-                  <View style={styles.cardFooter}>
-                    <Text style={styles.templateTag}>{note.templateType}</Text>
-                    <View style={styles.viewNoteRow}>
-                      <Text style={styles.viewNoteText}>Open Note</Text>
-                      <Ionicons name="chevron-forward" size={14} color="#2563EB" />
-                    </View>
-                  </View>
-                </CardContainer>
+                {/* Note Snippet / Verbatim Preview */}
+                <Text style={styles.noteSnippet}>{getNoteSnippet(c)}</Text>
               </TouchableOpacity>
             );
-          })
-        )}
+          })}
+        </View>
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  rootContainer: {
     flex: 1,
     backgroundColor: '#EFF4FA',
   },
-  searchBar: {
+  scrollView: {
+    flex: 1,
+    backgroundColor: '#EFF4FA',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  /* Top MediScribe Header */
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    marginBottom: 6,
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stethoscopeIconContainer: {
+    marginRight: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  brandTextColumn: {
+    justifyContent: 'center',
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  brandSubtitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginTop: -1,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  notificationBtn: {
+    padding: 6,
+    marginRight: 10,
+  },
+  doctorAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+  },
+  /* Title Section */
+  titleSection: {
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  mainTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14.5,
+    color: '#64748B',
+    marginTop: 4,
+  },
+  /* SOAP Auto-draft Banner matching screenshot */
+  autoDraftBanner: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  autoDraftText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  /* Search Container matching screenshot */
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    margin: 16,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: 18,
+    paddingHorizontal: 20,
+    height: 54,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 8,
+    borderColor: '#F1F5F9',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     color: '#0F172A',
   },
-  listContent: {
-    padding: 16,
-    paddingTop: 8,
-    paddingBottom: 96,
+  searchClearBtn: {
+    padding: 4,
   },
-  card: {
-    marginBottom: 10,
-  },
-  cardHeader: {
+  /* Segment Tabs: All Notes | Drafts | Finalized */
+  segmentContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  segmentTab: {
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 14,
+  },
+  segmentTabActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  segmentTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  segmentTabTextActive: {
+    color: '#2563EB',
+    fontWeight: '700',
+  },
+  /* Note Cards List */
+  cardsList: {
+    gap: 4,
+  },
+  noteCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   patientName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  metaLine: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  ccLabel: {
-    fontSize: 11,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#64748B',
-    marginTop: 4,
-  },
-  ccValue: {
-    fontSize: 13,
     color: '#0F172A',
-    fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: 12,
   },
-  impLabel: {
-    fontSize: 11,
+  statusPill: {
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignSelf: 'stretch',
+    marginBottom: 12,
+  },
+  statusPillDraft: {
+    backgroundColor: '#FEF3C7',
+  },
+  statusPillFinal: {
+    backgroundColor: '#ECFDF5',
+  },
+  statusPillText: {
+    fontSize: 13.5,
     fontWeight: '700',
-    color: '#64748B',
   },
-  impValue: {
-    fontSize: 13,
-    color: '#334155',
+  statusTextDraft: {
+    color: '#B45309',
+  },
+  statusTextFinal: {
+    color: '#166534',
+  },
+  noteMeta: {
+    fontSize: 13.5,
+    color: '#64748B',
     marginBottom: 8,
-    lineHeight: 18,
   },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    paddingTop: 8,
-  },
-  templateTag: {
-    fontSize: 11,
-    color: '#2563EB',
-    fontWeight: '700',
-  },
-  viewNoteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  viewNoteText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginTop: 12,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 4,
+  noteSnippet: {
+    fontSize: 14.5,
+    color: '#334155',
+    lineHeight: 22,
   },
 });
-
