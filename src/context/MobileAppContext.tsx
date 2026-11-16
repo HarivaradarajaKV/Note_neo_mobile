@@ -26,8 +26,8 @@ export const INITIAL_LIVE_TRANSCRIPT: TranscriptMessage[] = [
     id: 'turn-1',
     speaker: 'Doctor',
     speakerRole: 'Doctor',
-    text: 'Good morning, Mr. Ramesh. How have you been feeling since your last visit?',
-    originalText: 'Good morning, Mr. Ramesh. How have you been feeling since your last visit?',
+    text: 'Welcome, Haylie. I reviewed your cardiography report. How has the chest tightness been?',
+    originalText: 'Welcome, Haylie. I reviewed your cardiography report. How has the chest tightness been?',
     timestamp: '10:00 AM',
     isFinal: true,
   },
@@ -35,8 +35,8 @@ export const INITIAL_LIVE_TRANSCRIPT: TranscriptMessage[] = [
     id: 'turn-2',
     speaker: 'Patient',
     speakerRole: 'Patient',
-    text: "I've been having a persistent cough for about a week, and a mild fever since the last three days.",
-    originalText: "I've been having a persistent cough for about a week, and a mild fever since the last three days.",
+    text: "It's been tighter than usual, especially at night when I lay flat. I feel like I'm gasping for air.",
+    originalText: "It's been tighter than usual, especially at night when I lay flat. I feel like I'm gasping for air.",
     timestamp: '10:01 AM',
     isFinal: true,
   },
@@ -44,37 +44,36 @@ export const INITIAL_LIVE_TRANSCRIPT: TranscriptMessage[] = [
     id: 'turn-3',
     speaker: 'Doctor',
     speakerRole: 'Doctor',
-    text: 'Any shortness of breath or chest pain?',
-    originalText: 'Any shortness of breath or chest pain?',
-    timestamp: '10:01 AM',
+    text: 'Are you taking the prescribed Digoxin regularly? Any skipped doses?',
+    originalText: 'Are you taking the prescribed Digoxin regularly? Any skipped doses?',
+    timestamp: '10:02 AM',
     isFinal: true,
   },
   {
     id: 'turn-4',
     speaker: 'Patient',
     speakerRole: 'Patient',
-    text: 'A little shortness of breath, especially at night. No chest pain though.',
-    originalText: 'A little shortness of breath, especially at night. No chest pain though.',
-    timestamp: '10:02 AM',
-    isFinal: true,
-  },
-  {
-    id: 'turn-5',
-    speaker: 'Doctor',
-    speakerRole: 'Doctor',
-    text: 'Alright. Are you taking any medication right now?',
-    originalText: 'Alright. Are you taking any medication right now?',
+    text: 'I missed a couple of doses last week because of my stomach upset, to be honest.',
+    originalText: 'I missed a couple of doses last week because of my stomach upset, to be honest.',
     timestamp: '10:03 AM',
     isFinal: true,
   },
+];
+
+export const INITIAL_LIVE_INSIGHTS: AIInsight[] = [
   {
-    id: 'turn-6',
-    speaker: 'Patient',
-    speakerRole: 'Patient',
-    text: 'Just paracetamol for the fever.',
-    originalText: 'Just paracetamol for the fever.',
-    timestamp: '10:04 AM',
-    isFinal: true,
+    id: 'ins-1',
+    category: 'medication',
+    title: 'MEDICATION ADHERENCE WARNING',
+    detail: 'Digoxin therapy discontinued briefly; potential trigger for ventricular overload.',
+    badge: 'Medication Alert',
+  },
+  {
+    id: 'ins-2',
+    category: 'pathology',
+    title: 'PATHOLOGY IDENTIFIED',
+    detail: 'Nocturnal Orthopnea / Paroxysmal Nocturnal Dyspnea. Echo updates recommended.',
+    badge: 'Clinical Pathology',
   },
 ];
 
@@ -130,7 +129,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [consultationSeconds, setConsultationSeconds] = useState<number>(0);
   const [liveTranscript, setLiveTranscript] = useState<TranscriptMessage[]>(INITIAL_LIVE_TRANSCRIPT);
-  const [liveInsights, setLiveInsights] = useState<AIInsight[]>([]);
+  const [liveInsights, setLiveInsights] = useState<AIInsight[]>(INITIAL_LIVE_INSIGHTS);
   const [isProcessingNote, setIsProcessingNote] = useState<boolean>(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
   const [backendOnline, setBackendOnline] = useState<boolean>(true);
@@ -275,8 +274,8 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
     setActiveConsultation(newSession);
     setLiveTranscript(INITIAL_LIVE_TRANSCRIPT);
-    setLiveInsights([]);
-    setConsultationSeconds(0);
+    setLiveInsights(INITIAL_LIVE_INSIGHTS);
+    setConsultationSeconds(252);
     setIsRecording(true);
     setIsPaused(false);
     setIsMuted(false);

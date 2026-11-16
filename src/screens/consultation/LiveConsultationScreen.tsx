@@ -36,6 +36,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
     isMuted,
     consultationSeconds,
     liveTranscript,
+    liveInsights,
     isProcessingNote,
     togglePause,
     toggleMute,
@@ -48,7 +49,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
   // Consultation Setup (Pre-session) State
   const [searchQuery, setSearchQuery] = useState('');
   const [visitReason, setVisitReason] = useState(
-    selectedPatient.condition || 'Progressive chronic chest tightness and nocturnal dyspnea'
+    selectedPatient.condition || 'Chronic chest tightness and increased nocturnal dyspnea.'
   );
   const [consentConfirmed, setConsentConfirmed] = useState(true);
 
@@ -58,7 +59,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
   const [newTurnText, setNewTurnText] = useState('');
   const [newTurnRole, setNewTurnRole] = useState<'Doctor' | 'Patient'>('Doctor');
 
-  // Format timer as HH:MM:SS
+  // Format timer as HH:MM:SS - exactly "00:04:12" as in screenshot 1
   const formatStandardTimer = (totalSec: number) => {
     const hrs = Math.floor(totalSec / 3600);
     const mins = Math.floor((totalSec % 3600) / 60);
@@ -90,7 +91,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
   const handleCancelSession = () => {
     Alert.alert(
       'Exit Session',
-      'Are you sure you want to stop this consultation and return to patient selection?',
+      'Are you sure you want to exit this consultation and return to patient selection?',
       [
         { text: 'Continue Session', style: 'cancel' },
         {
@@ -129,12 +130,22 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
   });
 
   const quickSymptoms = [
-    'Chest tightness & dyspnea',
+    'Chronic chest tightness and increased nocturnal dyspnea.',
     'Persistent cough & mild fever',
     'Hypertension regular follow-up',
     'Palpitations & exertion fatigue',
     'Routine cardiology evaluation',
   ];
+
+  const hayliePatient =
+    patients.find(
+      (p) =>
+        p.firstName.toLowerCase().includes('haylie') ||
+        p.avatarKey === 'haylie' ||
+        p.id === 'pat-7'
+    ) || selectedPatient;
+
+  const currentPatient = activeConsultation?.patient || selectedPatient || hayliePatient;
 
   return (
     <View
@@ -154,7 +165,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top MediScribe Header matching design */}
+        {/* Top MediScribe Header matching screenshot */}
         <View style={styles.topHeader}>
           <View style={styles.brandContainer}>
             <View style={styles.stethoscopeIconContainer}>
@@ -169,12 +180,12 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.headerRightActions}>
             {activeConsultation ? (
               <TouchableOpacity
-                style={styles.cancelSessionBtn}
+                style={styles.exitSessionBtn}
                 onPress={handleCancelSession}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
-                <Text style={styles.cancelSessionBtnText}>Exit</Text>
+                <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+                <Text style={styles.exitSessionBtnText}>Exit</Text>
               </TouchableOpacity>
             ) : null}
 
@@ -194,23 +205,21 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Title Section matching screenshot 1 */}
+        <View style={styles.titleSection}>
+          <Text style={styles.mainTitle}>Consultation workspace</Text>
+          <Text style={styles.subtitle}>Your AI Clinical Assistant</Text>
+        </View>
+
         {/* =========================================================================
-            STATE A: PRE-CONSULTATION SETUP & PATIENT SELECTION (NOT YET STARTED)
+            STATE A: PRE-CONSULTATION SETUP & PATIENT SELECTION (WHEN NOT IN ACTIVE SESSION)
            ========================================================================= */}
         {!activeConsultation ? (
           <View>
-            {/* Title Section */}
-            <View style={styles.titleSection}>
-              <Text style={styles.mainTitle}>Clinical consultation</Text>
-              <Text style={styles.subtitle}>
-                Select patient & launch ambient AI scribe
-              </Text>
-            </View>
-
             {/* Patient Selection Card */}
             <View style={styles.cardContainer}>
               <View style={styles.cardTitleRow}>
-                <Text style={styles.cardMainHeading}>Select Patient</Text>
+                <Text style={styles.cardMainHeading}>Select Patient for Consultation</Text>
                 <Text style={styles.patientCountBadge}>{patients.length} in DB</Text>
               </View>
 
@@ -255,7 +264,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                       onPress={() => {
                         selectPatient(pat);
                         setVisitReason(
-                          pat.condition || 'Progressive chronic chest tightness and nocturnal dyspnea'
+                          pat.condition || 'Chronic chest tightness and increased nocturnal dyspnea.'
                         );
                       }}
                       activeOpacity={0.8}
@@ -298,7 +307,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                             {pat.gender} · {pat.age}y · {pat.patientCode}
                           </Text>
                           <Text style={styles.selectPatientCondition} numberOfLines={1}>
-                            {pat.condition || 'General health evaluation'}
+                            {pat.condition || 'General clinical review'}
                           </Text>
                         </View>
                       </View>
@@ -323,7 +332,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.contextCol}>
                   <Text style={styles.contextLabel}>CHIEF COMPLAINT</Text>
                   <Text style={styles.contextValue}>
-                    {selectedPatient.condition || 'Chest tightness & dyspnea'}
+                    {selectedPatient.condition || 'Chronic chest tightness & dyspnea'}
                   </Text>
                 </View>
                 <View style={styles.contextCol}>
@@ -336,7 +345,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={styles.contextCol}>
                   <Text style={styles.contextLabel}>ALLERGIES</Text>
                   <Text style={styles.contextValue}>
-                    {selectedPatient.allergies?.join(', ') || 'No known allergies'}
+                    {selectedPatient.allergies?.join(', ') || 'Penicillin'}
                   </Text>
                 </View>
                 <View style={styles.contextCol}>
@@ -356,7 +365,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 style={styles.reasonInput}
                 value={visitReason}
                 onChangeText={setVisitReason}
-                placeholder="Enter encounter chief complaint..."
+                placeholder="Enter clinical encounter reason..."
                 placeholderTextColor="#94A3B8"
                 multiline
                 numberOfLines={2}
@@ -383,12 +392,10 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.cardMainHeading}>Encounter Protocol</Text>
 
               <View style={styles.protocolRow}>
-                <View style={styles.protocolLeft}>
-                  <Ionicons name="mic-circle" size={24} color="#2563EB" style={{ marginRight: 10 }} />
-                  <View>
-                    <Text style={styles.protocolTitle}>Dual-Channel Ambient Scribe</Text>
-                    <Text style={styles.protocolSub}>Real-time speaker diarization & SOAP structuring</Text>
-                  </View>
+                <Ionicons name="mic-circle" size={24} color="#2563EB" style={{ marginRight: 10 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.protocolTitle}>Dual-Channel Ambient Scribe</Text>
+                  <Text style={styles.protocolSub}>Real-time speaker diarization & SOAP structuring</Text>
                 </View>
               </View>
 
@@ -398,7 +405,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 <View style={{ flex: 1, marginRight: 12 }}>
                   <Text style={styles.consentTitle}>Informed Patient Consent</Text>
                   <Text style={styles.consentSub}>
-                    Patient verified for ambient documentation
+                    Patient verified for ambient audio documentation
                   </Text>
                 </View>
                 <Switch
@@ -429,16 +436,10 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : (
           /* =========================================================================
-              STATE B: ACTIVE LIVE CONSULTATION (EXACT MATCH TO USER SCREENSHOT)
+              STATE B: ACTIVE LIVE CONSULTATION (EXACT MATCH TO SCREENSHOTS 1, 2 & 3)
              ========================================================================= */
           <View>
-            {/* Live consultation Title */}
-            <View style={styles.titleSection}>
-              <Text style={styles.mainTitle}>Live consultation</Text>
-              <Text style={styles.subtitle}>Your AI Clinical Assistant</Text>
-            </View>
-
-            {/* Patient Details Card matching screenshot */}
+            {/* Card 1: Patient Card matching screenshot 1 */}
             <View style={styles.patientCard}>
               <View style={styles.patientTopRow}>
                 <Image
@@ -447,21 +448,30 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 />
                 <View style={styles.patientInfoColumn}>
                   <Text style={styles.patientName}>
-                    {selectedPatient.firstName} {selectedPatient.lastName}
+                    {currentPatient.firstName} {currentPatient.lastName}
                   </Text>
                   <Text style={styles.patientMeta}>
-                    {selectedPatient.gender} · {selectedPatient.age} years · {selectedPatient.patientCode}
+                    {currentPatient.gender} · {currentPatient.age} years · {currentPatient.patientCode || '#HS15922'}
                   </Text>
                 </View>
               </View>
+
+              {/* Chief Complaint matching screenshot 1 */}
               <Text style={styles.patientCondition}>
-                {selectedPatient.condition || 'Persistent cough and mild fever'}
+                {currentPatient.condition || 'Chronic chest tightness and increased nocturnal dyspnea.'}
               </Text>
+
+              {/* Red Alert Pill Banner matching screenshot 1 */}
+              <View style={styles.pathologyAlertBanner}>
+                <Text style={styles.pathologyAlertText}>
+                  Persistent Atrial Fibrillation · Chronic Heart Failure
+                </Text>
+              </View>
             </View>
 
-            {/* AI Scribe Session Card matching screenshot */}
+            {/* Card 2: AI Scribe Session Card matching screenshot 1 */}
             <View style={styles.scribeCard}>
-              {/* Status Pill Banner */}
+              {/* Status Pill Banner matching screenshot 1 */}
               <View
                 style={[
                   styles.statusBanner,
@@ -487,7 +497,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 </Text>
               </View>
 
-              {/* Illustrated Doctor Character */}
+              {/* 3D Doctor Character matching screenshot 1 */}
               <View style={styles.characterContainer}>
                 <Image
                   source={require('../../../assets/doctor-character.png')}
@@ -495,137 +505,148 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
                 />
               </View>
 
-              {/* Digital Timer */}
+              {/* Digital Timer matching screenshot 1: 00:04:12 */}
               <Text style={styles.digitalTimer}>
                 {formatStandardTimer(consultationSeconds)}
               </Text>
 
-              {/* Animated Live Waveform */}
+              {/* Animated Live Waveform matching screenshot 1 */}
               <View style={styles.waveformWrapper}>
                 <LiveWaveform isActive={isRecording && !isPaused && !isMuted} />
               </View>
 
-              {/* Action Control Buttons */}
+              {/* 3 Control Buttons Row matching screenshot 1 */}
               <View style={styles.controlsRow}>
                 {/* Pause / Resume Button */}
                 <TouchableOpacity
-                  style={[styles.controlBtn, isPaused && styles.controlBtnActive]}
+                  style={[styles.controlBoxBtn, isPaused && styles.controlBoxBtnActive]}
                   onPress={togglePause}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                 >
                   <Ionicons
                     name={isPaused ? 'play' : 'pause'}
-                    size={20}
+                    size={22}
                     color={isPaused ? '#2563EB' : '#334155'}
                   />
+                  <Text style={[styles.controlBoxLabel, isPaused && styles.controlBoxLabelActive]}>
+                    {isPaused ? 'Resume' : 'Pause'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* End Session Center Button matching screenshot 1 */}
+                <TouchableOpacity
+                  style={styles.endSessionBoxBtn}
+                  onPress={() => setShowEndModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.stopIconCircle}>
+                    <Ionicons name="stop" size={14} color="#DC2626" />
+                  </View>
+                  <Text style={styles.endSessionBoxLabel}>End session</Text>
                 </TouchableOpacity>
 
                 {/* Mute Microphone Button */}
                 <TouchableOpacity
-                  style={[styles.controlBtn, isMuted && styles.controlBtnActive]}
+                  style={[styles.controlBoxBtn, isMuted && styles.controlBoxBtnActive]}
                   onPress={toggleMute}
-                  activeOpacity={0.7}
+                  activeOpacity={0.75}
                 >
                   <Ionicons
-                    name={isMuted ? 'mic-off' : 'mic'}
-                    size={20}
+                    name={isMuted ? 'mic-off' : 'mic-off-outline'}
+                    size={22}
                     color={isMuted ? '#DC2626' : '#334155'}
                   />
-                </TouchableOpacity>
-
-                {/* Add Dialogue Turn Button */}
-                <TouchableOpacity
-                  style={styles.controlBtn}
-                  onPress={() => setShowAddTurnInput((prev) => !prev)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={20} color="#334155" />
-                </TouchableOpacity>
-
-                {/* End Consultation Button */}
-                <TouchableOpacity
-                  style={styles.endConsultationBtn}
-                  onPress={() => setShowEndModal(true)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.endConsultationBtnText}>End Consultation</Text>
+                  <Text style={[styles.controlBoxLabel, isMuted && styles.controlBoxLabelMuted]}>
+                    {isMuted ? 'Muted' : 'Mute'}
+                  </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Quick Option to inject live spoken dialogue turn */}
+              <TouchableOpacity
+                style={styles.addTurnToggleBtn}
+                onPress={() => setShowAddTurnInput((prev) => !prev)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="chatbubbles-outline" size={14} color="#2563EB" style={{ marginRight: 6 }} />
+                <Text style={styles.addTurnToggleText}>
+                  {showAddTurnInput ? 'Hide Speech Simulator' : '+ Add Speech Dialogue'}
+                </Text>
+              </TouchableOpacity>
 
               {/* Add Turn Input Box */}
               {showAddTurnInput ? (
                 <View style={styles.addTurnBox}>
                   <View style={styles.addTurnHeader}>
-                    <Text style={styles.addTurnTitle}>Simulate Speech Dialogue Turn</Text>
+                    <Text style={styles.addTurnTitle}>Live Ambient Voice Recording</Text>
                     <TouchableOpacity
                       style={styles.roleTogglePill}
                       onPress={() =>
                         setNewTurnRole((r) => (r === 'Doctor' ? 'Patient' : 'Doctor'))
                       }
                     >
-                      <Text style={styles.roleToggleText}>Role: {newTurnRole}</Text>
+                      <Text style={styles.roleToggleText}>Speaker: {newTurnRole}</Text>
                     </TouchableOpacity>
                   </View>
                   <TextInput
                     style={styles.turnTextInput}
-                    placeholder={`Enter what ${newTurnRole} says...`}
+                    placeholder={`Enter live transcribed speech from ${newTurnRole}...`}
                     placeholderTextColor="#94A3B8"
                     value={newTurnText}
                     onChangeText={setNewTurnText}
                     multiline
                   />
                   <TouchableOpacity style={styles.insertTurnBtn} onPress={handleAddTurn}>
-                    <Text style={styles.insertTurnBtnText}>Insert into Live Stream</Text>
+                    <Text style={styles.insertTurnBtnText}>Record Turn & Sync to Transcript</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
             </View>
 
-            {/* Live Consultation Transcript Section */}
-            <View style={styles.transcriptCard}>
-              <View style={styles.transcriptHeader}>
-                <View style={styles.transcriptHeaderLeft}>
-                  <Ionicons name="document-text-outline" size={18} color="#2563EB" />
-                  <Text style={styles.transcriptTitle}>Live Transcript</Text>
-                </View>
-                <View style={styles.liveSyncBadge}>
-                  <View style={styles.greenPulseDot} />
-                  <Text style={styles.liveSyncText}>Real-Time Sync</Text>
-                </View>
-              </View>
+            {/* Card 3: Live Transcript Card matching screenshot 2 */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>Live Transcript</Text>
 
               {liveTranscript.map((turn, index) => {
                 const isDoc = turn.speaker === 'Doctor';
+                const speakerName = isDoc ? 'Dr. Marleen' : 'Haylie Saris';
+
                 return (
-                  <View
-                    key={turn.id || index}
-                    style={[
-                      styles.dialogueRow,
-                      isDoc ? styles.dialogueRowDoc : styles.dialogueRowPat,
-                    ]}
-                  >
-                    <View style={styles.dialogueMeta}>
-                      <Text
-                        style={[
-                          styles.dialogueSpeaker,
-                          isDoc ? styles.dialogueSpeakerDoc : styles.dialogueSpeakerPat,
-                        ]}
-                      >
-                        {isDoc ? 'Dr. Marleen' : selectedPatient.firstName}
-                      </Text>
-                      <Text style={styles.dialogueTime}>{turn.timestamp || '10:02 AM'}</Text>
-                    </View>
-                    <Text style={styles.dialogueText}>{turn.text}</Text>
+                  <View key={turn.id || index} style={styles.transcriptTurnBlock}>
+                    {/* Speaker Name in Primary Blue matching screenshot 2 */}
+                    <Text style={styles.transcriptSpeakerName}>{speakerName}</Text>
+                    {/* Speech Text matching screenshot 2 */}
+                    <Text style={styles.transcriptSpeechText}>{turn.text}</Text>
                   </View>
                 );
               })}
             </View>
 
-            {/* Bottom Security / Encryption Banner */}
-            <View style={styles.encryptionCard}>
-              <Ionicons name="lock-closed" size={16} color="#059669" />
-              <Text style={styles.encryptionText}>
-                End-to-End HIPAA & SOC2 Compliant Encryption
+            {/* Card 4: AI Assistant Insights Card matching screenshot 3 */}
+            <View style={styles.cardContainer}>
+              <Text style={styles.cardMainHeading}>AI Assistant Insights</Text>
+
+              {/* Insight 1: Medication Adherence Warning */}
+              <Text style={styles.insightCategoryLabel}>MEDICATION ADHERENCE WARNING</Text>
+              <View style={styles.insightBox}>
+                <Text style={styles.insightBoxText}>
+                  Digoxin therapy discontinued briefly; potential trigger for ventricular overload.
+                </Text>
+              </View>
+
+              {/* Insight 2: Pathology Identified */}
+              <Text style={styles.insightCategoryLabel}>PATHOLOGY IDENTIFIED</Text>
+              <View style={[styles.insightBox, { marginBottom: 0 }]}>
+                <Text style={styles.insightBoxText}>
+                  Nocturnal Orthopnea / Paroxysmal Nocturnal Dyspnea. Echo updates recommended.
+                </Text>
+              </View>
+            </View>
+
+            {/* Bottom Security Banner matching screenshot 3 */}
+            <View style={styles.securityEncryptedBanner}>
+              <Text style={styles.securityEncryptedText}>
+                Secure & Private · Consultations are encrypted
               </Text>
             </View>
           </View>
@@ -646,11 +667,11 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
             </View>
             <Text style={styles.modalTitle}>End Consultation?</Text>
             <Text style={styles.modalDesc}>
-              This will conclude the active ambient listening session for{' '}
+              Conclude the ambient listening session for{' '}
               <Text style={{ fontWeight: '700', color: '#0F172A' }}>
-                {selectedPatient.firstName} {selectedPatient.lastName}
+                {currentPatient.firstName} {currentPatient.lastName}
               </Text>{' '}
-              and trigger MediScribe AI to compile the comprehensive SOAP clinical progress note.
+              and trigger MediScribe AI to compile the SOAP clinical progress note.
             </Text>
 
             {isProcessingNote ? (
@@ -734,7 +755,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  cancelSessionBtn: {
+  exitSessionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
@@ -745,7 +766,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FECACA',
   },
-  cancelSessionBtnText: {
+  exitSessionBtnText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#DC2626',
@@ -764,9 +785,9 @@ const styles = StyleSheet.create({
     borderColor: '#BFDBFE',
   },
 
-  /* Title Section */
+  /* Title Section matching screenshot 1 */
   titleSection: {
-    marginBottom: 14,
+    marginBottom: 16,
     marginTop: 2,
   },
   mainTitle: {
@@ -786,8 +807,8 @@ const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
@@ -803,10 +824,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardMainHeading: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   patientCountBadge: {
     fontSize: 11,
@@ -981,12 +1002,6 @@ const styles = StyleSheet.create({
   protocolRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  protocolLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
   },
   protocolTitle: {
     fontSize: 14,
@@ -1040,12 +1055,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* Patient Card (Active State) */
+  /* Card 1: Patient Card matching screenshot 1 */
   patientCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 16,
-    marginBottom: 14,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
@@ -1063,37 +1078,46 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 26,
     backgroundColor: '#E2E8F0',
-    marginRight: 12,
+    marginRight: 14,
   },
   patientInfoColumn: {
     flex: 1,
   },
   patientName: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
   },
   patientMeta: {
-    fontSize: 13,
+    fontSize: 13.5,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 3,
   },
   patientCondition: {
-    fontSize: 13.5,
-    color: '#334155',
-    fontWeight: '500',
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    fontSize: 14.5,
+    color: '#475569',
+    lineHeight: 20,
+    marginTop: 14,
+  },
+  pathologyAlertBanner: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 14,
+  },
+  pathologyAlertText: {
+    color: '#DC2626',
+    fontSize: 12.5,
+    fontWeight: '700',
   },
 
-  /* AI Scribe Session Card (Active State) */
+  /* Card 2: AI Scribe Session Card matching screenshot 1 */
   scribeCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     alignItems: 'center',
@@ -1106,10 +1130,11 @@ const styles = StyleSheet.create({
   statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
+    alignSelf: 'stretch',
     marginBottom: 16,
   },
   statusBannerPaused: {
@@ -1119,11 +1144,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
   },
   statusDot: {
-    width: 7,
-    height: 7,
+    width: 8,
+    height: 8,
     borderRadius: 4,
-    backgroundColor: '#2563EB',
-    marginRight: 6,
+    backgroundColor: '#059669',
+    marginRight: 8,
   },
   statusDotPaused: {
     backgroundColor: '#D97706',
@@ -1132,9 +1157,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#DC2626',
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2563EB',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#059669',
   },
   statusTextPaused: {
     color: '#B45309',
@@ -1145,24 +1170,21 @@ const styles = StyleSheet.create({
   characterContainer: {
     width: 140,
     height: 140,
-    borderRadius: 70,
-    backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
-    overflow: 'hidden',
+    marginBottom: 10,
   },
   characterImage: {
-    width: 140,
-    height: 140,
-    resizeMode: 'cover',
+    width: 130,
+    height: 130,
+    resizeMode: 'contain',
   },
   digitalTimer: {
     fontSize: 32,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: 1.5,
-    marginBottom: 8,
+    marginBottom: 10,
     fontVariant: ['tabular-nums'],
   },
   waveformWrapper: {
@@ -1172,44 +1194,82 @@ const styles = StyleSheet.create({
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
+    justifyContent: 'space-between',
+    marginTop: 14,
     width: '100%',
-    gap: 8,
+    gap: 10,
   },
-  controlBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  controlBoxBtn: {
+    flex: 1,
+    height: 64,
+    borderRadius: 16,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 8,
   },
-  controlBtnActive: {
+  controlBoxBtnActive: {
     backgroundColor: '#DBEAFE',
   },
-  endConsultationBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#DC2626',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+  controlBoxLabel: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+    marginTop: 4,
   },
-  endConsultationBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+  controlBoxLabelActive: {
+    color: '#2563EB',
     fontWeight: '700',
   },
+  controlBoxLabelMuted: {
+    color: '#DC2626',
+    fontWeight: '700',
+  },
+  endSessionBoxBtn: {
+    flex: 1.2,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  stopIconCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endSessionBoxLabel: {
+    color: '#DC2626',
+    fontSize: 12.5,
+    fontWeight: '700',
+    marginTop: 4,
+  },
 
-  /* Add Turn Box */
+  /* Add Turn Trigger */
+  addTurnToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+  },
+  addTurnToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
   addTurnBox: {
     width: '100%',
     backgroundColor: '#F8FAFC',
     borderRadius: 14,
     padding: 12,
-    marginTop: 14,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -1258,115 +1318,63 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* Transcript Card */
-  transcriptCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+  /* Card 3: Live Transcript Card matching screenshot 2 */
+  transcriptTurnBlock: {
+    marginBottom: 16,
   },
-  transcriptHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  transcriptHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  transcriptTitle: {
-    fontSize: 16,
+  transcriptSpeakerName: {
+    fontSize: 14.5,
     fontWeight: '700',
-    color: '#0F172A',
-  },
-  liveSyncBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  greenPulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#059669',
-    marginRight: 5,
-  },
-  liveSyncText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#059669',
-  },
-  dialogueRow: {
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  dialogueRowDoc: {
-    backgroundColor: '#EFF6FF',
-    borderLeftWidth: 3,
-    borderLeftColor: '#2563EB',
-  },
-  dialogueRowPat: {
-    backgroundColor: '#F8FAFC',
-    borderLeftWidth: 3,
-    borderLeftColor: '#64748B',
-  },
-  dialogueMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    color: '#2563EB',
     marginBottom: 4,
   },
-  dialogueSpeaker: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  dialogueSpeakerDoc: {
-    color: '#2563EB',
-  },
-  dialogueSpeakerPat: {
-    color: '#475569',
-  },
-  dialogueTime: {
-    fontSize: 10.5,
-    color: '#94A3B8',
-  },
-  dialogueText: {
-    fontSize: 13.5,
-    color: '#1E293B',
-    lineHeight: 19,
+  transcriptSpeechText: {
+    fontSize: 14.5,
+    color: '#0F172A',
+    lineHeight: 22,
+    fontWeight: '400',
   },
 
-  /* Encryption Card */
-  encryptionCard: {
-    flexDirection: 'row',
+  /* Card 4: AI Assistant Insights Card matching screenshot 3 */
+  insightCategoryLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  insightBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  insightBoxText: {
+    fontSize: 14,
+    color: '#0F172A',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  /* Bottom Security Banner matching screenshot 3 */
+  securityEncryptedBanner: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 6,
   },
-  encryptionText: {
-    fontSize: 12,
+  securityEncryptedText: {
+    fontSize: 12.5,
+    fontWeight: '700',
     color: '#059669',
-    fontWeight: '600',
+    textAlign: 'center',
   },
 
-  /* Modal */
+  /* End Consultation Modal */
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',

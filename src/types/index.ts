@@ -88,7 +88,7 @@ export interface MedicationCandidate {
 
 export interface AIInsight {
   id: string;
-  category: 'symptom' | 'medication' | 'negative' | 'vitals';
+  category: 'symptom' | 'medication' | 'negative' | 'vitals' | 'pathology';
   title: string;
   detail: string;
   badge?: string;
