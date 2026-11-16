@@ -10,9 +10,11 @@ import { ScheduleScreen } from '../screens/schedule/ScheduleScreen';
 import { NotesListScreen } from '../screens/notes/NotesListScreen';
 import { ClinicalNoteReviewScreen } from '../screens/review/ClinicalNoteReviewScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
+import { ClinicalSecurityScreen } from '../screens/settings/ClinicalSecurityScreen';
 
 const Tab = createBottomTabNavigator();
 const NotesStack = createNativeStackNavigator();
+const SettingsStack = createNativeStackNavigator();
 
 const NotesNavigator: React.FC = () => {
   return (
@@ -20,6 +22,15 @@ const NotesNavigator: React.FC = () => {
       <NotesStack.Screen name="ClinicalNoteReview" component={ClinicalNoteReviewScreen} />
       <NotesStack.Screen name="NotesList" component={NotesListScreen} />
     </NotesStack.Navigator>
+  );
+};
+
+const SettingsNavigator: React.FC = () => {
+  return (
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="ClinicalSecurity">
+      <SettingsStack.Screen name="ClinicalSecurity" component={ClinicalSecurityScreen} />
+      <SettingsStack.Screen name="SettingsMain" component={SettingsScreen} />
+    </SettingsStack.Navigator>
   );
 };
 
@@ -101,7 +112,7 @@ export const DoctorTabs: React.FC = () => {
       />
       <Tab.Screen
         name="Settings"
-        component={SettingsScreen}
+        component={SettingsNavigator}
         options={{ tabBarLabel: 'Settings' }}
       />
     </Tab.Navigator>
