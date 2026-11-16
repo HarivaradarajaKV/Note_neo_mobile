@@ -182,7 +182,7 @@ export const INITIAL_PATIENTS: Patient[] = [
     avatarKey: 'ramesh',
   },
   {
-    id: 'pat-4',
+    id: 'pat-6',
     patientCode: '#PK45294',
     firstName: 'Robert',
     lastName: 'Fox',
@@ -199,6 +199,7 @@ export const INITIAL_PATIENTS: Patient[] = [
     statusRisk: 'Under Risk',
     dateAdded: 'Oct 2025',
     assignedDoctorName: 'Dr. Marleen',
+    avatarKey: 'ramesh',
   },
 ];
 
@@ -244,7 +245,7 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
   },
   {
     id: 'apt-4',
-    patientId: 'pat-4',
+    patientId: 'pat-6',
     patientName: 'Robert Fox',
     patientCode: '#PK45294',
     time: '03:30 PM',
