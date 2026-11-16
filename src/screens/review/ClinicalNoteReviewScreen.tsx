@@ -27,7 +27,9 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
 
   const [activeTab, setActiveTab] = useState<'soap' | 'transcript' | 'rx'>('soap');
 
-  if (!session || !session.note) {
+  const effectiveNote = session?.note || session?.soapNote;
+
+  if (!session || !effectiveNote) {
     return (
       <View style={styles.container}>
         <MobileHeader title="Clinical Note Review" showBack onBack={() => navigation.goBack()} />
@@ -36,8 +38,8 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
           <Text style={styles.emptyTitle}>No Note Ready for Review</Text>
           <Text style={styles.emptySubtitle}>Start or complete a live consultation to review clinical documentation.</Text>
           <ActionButton
-            title="Go to Dashboard"
-            onPress={() => navigation.navigate('Dashboard')}
+            title="Go to Live Consultation"
+            onPress={() => navigation.navigate('LiveConsultation')}
             style={{ marginTop: 16 }}
           />
         </View>
@@ -45,7 +47,8 @@ export const ClinicalNoteReviewScreen: React.FC<Props> = ({ route, navigation })
     );
   }
 
-  const { note, patient, transcript, doctor } = session;
+  const note = effectiveNote;
+  const { patient, transcript, doctor } = session;
   const isApproved = session.status === 'approved' || note.status === 'approved';
 
   const handleApprove = () => {

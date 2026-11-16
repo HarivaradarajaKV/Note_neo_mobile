@@ -9,8 +9,9 @@ import {
   Modal,
   ActivityIndicator,
   TextInput,
-  SafeAreaView,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useMobileApp } from '../../context/MobileAppContext';
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const {
     selectedPatient,
     isRecording,
@@ -40,15 +42,7 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
   const [newTurnText, setNewTurnText] = useState('');
   const [newTurnRole, setNewTurnRole] = useState<'Doctor' | 'Patient'>('Doctor');
 
-  const formatTimer = (totalSec: number) => {
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(
-      Math.floor((totalSec * 10) % 60)
-    ).padStart(2, '0').slice(0, 2)}`;
-  };
-
-  // Standard timer format (MM:SS or HH:MM:SS) - in screenshot: "00:04:32"
+  // Format timer as HH:MM:SS or MM:SS - in screenshot: "00:04:32"
   const formatStandardTimer = (totalSec: number) => {
     const hrs = Math.floor(totalSec / 3600);
     const mins = Math.floor((totalSec % 3600) / 60);
@@ -82,13 +76,16 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.rootContainer, { paddingTop: Math.max(insets.top, Platform.OS === 'ios' ? 12 : 24) }]}>
       <StatusBar style="dark" />
 
       {/* Main Scrollable Content */}
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 24) + 24 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Top MediScribe Header matching screenshot */}
@@ -379,31 +376,30 @@ export const LiveConsultationScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </Modal>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  rootContainer: {
     flex: 1,
     backgroundColor: '#EFF4FA',
   },
-  container: {
+  scrollView: {
     flex: 1,
     backgroundColor: '#EFF4FA',
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 28,
+    paddingTop: 4,
   },
   /* Top MediScribe Header */
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    marginBottom: 8,
+    paddingVertical: 8,
+    marginBottom: 6,
   },
   brandContainer: {
     flexDirection: 'row',
@@ -443,6 +439,8 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     backgroundColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
   },
   /* Title Section */
   titleSection: {
@@ -456,30 +454,32 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 14.5,
     color: '#64748B',
     marginTop: 4,
   },
   /* Patient Details Card */
   patientCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 18,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   patientTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   patientAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#E2E8F0',
   },
   patientInfoColumn: {
@@ -500,28 +500,31 @@ const styles = StyleSheet.create({
   patientCondition: {
     fontSize: 15,
     color: '#475569',
-    marginTop: 12,
+    marginTop: 14,
+    lineHeight: 20,
   },
   /* Live Scribe Card */
   scribeCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 2,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ECFDF5',
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     alignSelf: 'stretch',
   },
   statusBannerPaused: {
@@ -535,7 +538,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: '#10B981',
-    marginRight: 8,
+    marginRight: 10,
   },
   statusDotPaused: {
     backgroundColor: '#F59E0B',
@@ -544,7 +547,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   statusText: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '600',
     color: '#15803D',
   },
@@ -557,11 +560,11 @@ const styles = StyleSheet.create({
   characterContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 10,
+    marginVertical: 12,
     height: 180,
   },
   characterImage: {
-    width: 130,
+    width: 125,
     height: 180,
     resizeMode: 'contain',
   },
@@ -571,6 +574,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: 0.5,
     marginVertical: 4,
+    textAlign: 'center',
   },
   /* Control Action Buttons Row */
   actionRow: {
@@ -579,13 +583,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignSelf: 'stretch',
     marginTop: 16,
-    gap: 10,
+    gap: 12,
   },
   actionBtn: {
     flex: 1,
-    height: 58,
+    height: 60,
     backgroundColor: '#F1F5F9',
-    borderRadius: 16,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -593,7 +597,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E8F0',
   },
   actionBtnText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '600',
     color: '#334155',
     marginTop: 4,
@@ -603,14 +607,14 @@ const styles = StyleSheet.create({
   },
   endSessionBtn: {
     flex: 1.25,
-    height: 58,
+    height: 60,
     backgroundColor: '#FEF2F2',
-    borderRadius: 16,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   endSessionText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '600',
     color: '#EF4444',
     marginTop: 4,
@@ -619,19 +623,21 @@ const styles = StyleSheet.create({
   transcriptCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 18,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+    padding: 22,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   transcriptCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   transcriptCardTitle: {
     fontSize: 18,
@@ -642,9 +648,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
     backgroundColor: '#EFF6FF',
   },
   addTurnToggleText: {
@@ -667,7 +673,7 @@ const styles = StyleSheet.create({
   },
   roleTogglePill: {
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 14,
     backgroundColor: '#E2E8F0',
   },
@@ -689,7 +695,7 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    height: 40,
+    height: 42,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     paddingHorizontal: 12,
@@ -699,8 +705,8 @@ const styles = StyleSheet.create({
     borderColor: '#CBD5E1',
   },
   sendTurnBtn: {
-    width: 38,
-    height: 38,
+    width: 42,
+    height: 42,
     borderRadius: 10,
     backgroundColor: '#2563EB',
     alignItems: 'center',
@@ -710,7 +716,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   turnBlock: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   speakerLabel: {
     fontSize: 14.5,
@@ -721,21 +727,23 @@ const styles = StyleSheet.create({
   turnSpeechText: {
     fontSize: 15,
     color: '#1E293B',
-    lineHeight: 22,
+    lineHeight: 23,
   },
   /* Security Banner */
   securityBanner: {
     backgroundColor: '#ECFDF5',
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
   },
   securityBannerText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '600',
-    color: '#166534',
+    color: '#15803D',
   },
   /* Modals */
   modalOverlay: {
@@ -747,23 +755,23 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: 22,
+    padding: 24,
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
   },
   modalIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '700',
     color: '#0F172A',
     marginBottom: 8,
@@ -774,7 +782,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: 22,
   },
   modalActions: {
     flexDirection: 'row',
@@ -783,8 +791,8 @@ const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     flex: 1,
-    height: 46,
-    borderRadius: 12,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -795,9 +803,9 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   modalConfirmBtn: {
-    flex: 1.2,
-    height: 46,
-    borderRadius: 12,
+    flex: 1.25,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: '#2563EB',
     alignItems: 'center',
     justifyContent: 'center',
@@ -809,8 +817,8 @@ const styles = StyleSheet.create({
   },
   processingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 28,
+    borderRadius: 22,
+    padding: 30,
     alignItems: 'center',
     maxWidth: 340,
   },

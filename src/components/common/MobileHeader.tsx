@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useMobileApp } from '../../context/MobileAppContext';
 
@@ -18,10 +19,12 @@ export const MobileHeader: React.FC<Props> = ({
   onBack,
   rightAction,
 }) => {
+  const insets = useSafeAreaInsets();
   const { currentUser, logout } = useMobileApp();
+  const topPad = Math.max(insets.top, Platform.OS === 'ios' ? 12 : 16);
 
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { paddingTop: topPad, height: 60 + topPad }]}>
       <View style={styles.leftContainer}>
         {showBack ? (
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -52,7 +55,7 @@ export const MobileHeader: React.FC<Props> = ({
         ) : (
           <TouchableOpacity onPress={logout} style={styles.userProfile}>
             <Image
-              source={{ uri: currentUser.avatar }}
+              source={require('../../../assets/doctor-avatar.png')}
               style={styles.avatar}
             />
             <View style={styles.statusDot} />
@@ -65,7 +68,6 @@ export const MobileHeader: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   header: {
-    height: 64,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
@@ -100,12 +102,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#64748B',
     marginTop: 1,
   },
@@ -122,6 +124,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#3B82F6',
+    backgroundColor: '#E2E8F0',
   },
   statusDot: {
     position: 'absolute',
@@ -135,4 +138,3 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
 });
-

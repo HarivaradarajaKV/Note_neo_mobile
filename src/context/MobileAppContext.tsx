@@ -261,6 +261,7 @@ export const MobileAppProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       status: 'review_pending',
       transcript: diarizedTranscripts,
       insights: liveInsights,
+      note: generatedNote,
       soapNote: generatedNote,
     };
 

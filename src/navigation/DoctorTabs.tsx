@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LiveConsultationScreen } from '../screens/consultation/LiveConsultationScreen';
 import { PatientsScreen } from '../screens/patients/PatientsScreen';
@@ -11,6 +12,9 @@ import { SettingsScreen } from '../screens/settings/SettingsScreen';
 const Tab = createBottomTabNavigator();
 
 export const DoctorTabs: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'ios' ? 14 : 8);
+
   return (
     <Tab.Navigator
       initialRouteName="Consult"
@@ -22,17 +26,21 @@ export const DoctorTabs: React.FC = () => {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E2E8F0',
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 6,
+          height: 60 + bottomInset,
+          paddingBottom: bottomInset,
+          paddingTop: 8,
+          elevation: 8,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11.5,
           fontWeight: '600',
+          marginTop: 2,
         },
         tabBarIcon: ({ focused, color }) => {
-          let iconName: keyof typeof Ionicons.glyphMap = 'chatbubble-ellipses';
-
           if (route.name === 'Consult') {
             return (
               <View style={[styles.consultIconWrap, focused && styles.consultIconWrapFocused]}>
@@ -43,7 +51,10 @@ export const DoctorTabs: React.FC = () => {
                 />
               </View>
             );
-          } else if (route.name === 'Patients') {
+          }
+
+          let iconName: keyof typeof Ionicons.glyphMap = 'chatbubble-ellipses';
+          if (route.name === 'Patients') {
             iconName = focused ? 'people' : 'people-outline';
           } else if (route.name === 'Schedule') {
             iconName = focused ? 'calendar' : 'calendar-outline';
@@ -57,20 +68,40 @@ export const DoctorTabs: React.FC = () => {
         },
       })}
     >
-      <Tab.Screen name="Consult" component={LiveConsultationScreen} />
-      <Tab.Screen name="Patients" component={PatientsScreen} />
-      <Tab.Screen name="Schedule" component={ScheduleScreen} />
-      <Tab.Screen name="Notes" component={NotesListScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen
+        name="Consult"
+        component={LiveConsultationScreen}
+        options={{ tabBarLabel: 'Consult' }}
+      />
+      <Tab.Screen
+        name="Patients"
+        component={PatientsScreen}
+        options={{ tabBarLabel: 'Patients' }}
+      />
+      <Tab.Screen
+        name="Schedule"
+        component={ScheduleScreen}
+        options={{ tabBarLabel: 'Schedule' }}
+      />
+      <Tab.Screen
+        name="Notes"
+        component={NotesListScreen}
+        options={{ tabBarLabel: 'Notes' }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ tabBarLabel: 'Settings' }}
+      />
     </Tab.Navigator>
   );
 };
 
 const styles = StyleSheet.create({
   consultIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
