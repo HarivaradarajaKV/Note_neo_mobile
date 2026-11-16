@@ -14,6 +14,7 @@ import { ClinicalSecurityScreen } from '../screens/settings/ClinicalSecurityScre
 import { NotificationsScreen } from '../screens/settings/NotificationsScreen';
 import { EhrIntegrationsScreen } from '../screens/settings/EhrIntegrationsScreen';
 import { AiScribePresetScreen } from '../screens/settings/AiScribePresetScreen';
+import { BillingLicensesScreen } from '../screens/settings/BillingLicensesScreen';
 
 const Tab = createBottomTabNavigator();
 const NotesStack = createNativeStackNavigator();
@@ -30,7 +31,8 @@ const NotesNavigator: React.FC = () => {
 
 const SettingsNavigator: React.FC = () => {
   return (
-    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="AiScribePreset">
+    <SettingsStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="BillingLicenses">
+      <SettingsStack.Screen name="BillingLicenses" component={BillingLicensesScreen} />
       <SettingsStack.Screen name="AiScribePreset" component={AiScribePresetScreen} />
       <SettingsStack.Screen name="EhrIntegrations" component={EhrIntegrationsScreen} />
       <SettingsStack.Screen name="Notifications" component={NotificationsScreen} />
